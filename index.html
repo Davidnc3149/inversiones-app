@@ -96,12 +96,15 @@ function pantallaLogin(err){
 }
 function entrar(){ var c = $('cl').value.trim(); if (!c) return; var rec = $('rec').checked;
   $('app').innerHTML = '<div class="carga"><span class="spin"></span>Revisando…</div>';
-  api({ accion: 'entrar', clave: c }, function(r){ TOKEN = r.token; if (rec) guardarLocal('ic_app_token', TOKEN); cargar(); }, function(e){ pantallaLogin(e.message || String(e)); }); }
+  api({ accion: 'entrar', clave: c }, function(r){ TOKEN = r.token; D = null; guardarLocal('ic_app_datos', ''); if (rec) guardarLocal('ic_app_token', TOKEN); cargar(); }, function(e){ pantallaLogin(e.message || String(e)); }); }
 function salir(){ if (TOKEN) api({ accion: 'salir', token: TOKEN }, function(){}, function(){}); TOKEN = ''; D = null; guardarLocal('ic_app_token', ''); guardarLocal('ic_app_datos', ''); $('panel').style.display = 'none'; pantallaLogin(); }
-function cargar(){ $('app').innerHTML = '<div class="carga"><span class="spin"></span>Cargando tu cartera…</div>';
-  api({ accion: 'api', token: TOKEN, fn: 'appDatos' }, function(d){ D = d; D._hora = new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }); D._viejo = false; guardarLocal('ic_app_datos', JSON.stringify(D)); pintarNav(); pintar(); },
-    function(e){ if (/SESION:/.test(e.message || '')) { TOKEN = ''; guardarLocal('ic_app_token', ''); guardarLocal('ic_app_datos', ''); pantallaLogin(e.message.replace('SESION: ', '')); return; }
-      var g = leerLocal('ic_app_datos'); if (g) { try { D = JSON.parse(g); D._viejo = true; D._error = e.message; pintarNav(); pintar(); return; } catch (x) {} } errorGen(e); }); }
+// v1.3: abre al instante con lo último guardado y actualiza por detrás
+function cargar(){
+  if (!D) { var g0 = leerLocal('ic_app_datos'); if (g0) { try { D = JSON.parse(g0); } catch (x) { D = null; } } }
+  if (D) { D._cargando = true; pintarNav(); pintar(); } else $('app').innerHTML = '<div class="carga"><span class="spin"></span>Cargando tu cartera…</div>';
+  api({ accion: 'api', token: TOKEN, fn: 'appDatos' }, function(d){ var y = window.scrollY; D = d; D._hora = new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }); D._viejo = false; D._cargando = false; guardarLocal('ic_app_datos', JSON.stringify(D)); pintarNav(); pintar(); window.scrollTo(0, y); },
+    function(e){ if (/SESION:/.test(e.message || '')) { TOKEN = ''; D = null; guardarLocal('ic_app_token', ''); guardarLocal('ic_app_datos', ''); pantallaLogin(e.message.replace('SESION: ', '')); return; }
+      if (D) { D._cargando = false; D._viejo = true; D._error = e.message; pintarNav(); pintar(); return; } errorGen(e); }); }
 
 // ---------- navegación ----------
 function tabs(){ var t = [['hoy','☀️','Hoy'],['creditos','👥','Créditos'],['cobrar','💬','Cobrar']]; if (D && D.yo.tipo === 'admin') { t.push(['dispersar','💸','Dispersar']); t.push(['caja','📊','Caja']); } return t; }
@@ -110,7 +113,8 @@ function ir(t){ TAB = t; pintarNav(); pintar(); window.scrollTo(0, 0); }
 function cabeza(sub){ var f = new Date(D.hoy + 'T12:00:00');
   return '<div class="top"><div><div class="marca">' + (sub || 'Inversiones Conscientes') + '</div><div class="fecha">' + (function(t){ return t.charAt(0).toUpperCase() + t.slice(1); })(f.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' })) + '</div></div>' +
     '<div style="display:flex;gap:6px;"><button class="yo" onclick="cargar()" title="Actualizar">↻</button><button class="yo" onclick="if(confirm(\'¿Salir?\'))salir()">' + esc(primer(D.yo.nombre)) + '</button></div></div>' +
-    (D._viejo ? '<div class="aviso a">Sin conexión: estos datos son de las ' + esc(D._hora || '') + '. Toca ↻ cuando tengas señal.</div>' : ''); }
+    (D._cargando ? '<div class="aviso" style="background:var(--acs);color:var(--ac2);display:flex;gap:8px;align-items:center;"><span class="spin" style="width:14px;height:14px;border-width:2px;"></span>Actualizando… (estos datos son de las ' + esc(D._hora || '') + ')</div>' : '') +
+    (!D._cargando && D._viejo ? '<div class="aviso a">Sin conexión: estos datos son de las ' + esc(D._hora || '') + '. Toca ↻ cuando tengas señal.</div>' : ''); }
 function pintar(){ if (!D) return; ({ hoy: vHoy, creditos: vCreditos, cobrar: vCobrar, dispersar: vDispersar, caja: vCaja })[TAB](); }
 function activos(){ return D.creditos.filter(function(c){ return !c.porDispersar; }); }
 function filaCred(c, modo){
