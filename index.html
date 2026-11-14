@@ -156,11 +156,11 @@ function cargarResumen(forzar){
   if (!R) { var g = leerLocal('ic_app_res'); if (g) { try { R = JSON.parse(g); } catch (x) { R = null; } } }
   if (R && !forzar && Date.now() - (R._t || 0) < 5 * 60000) return;
   if (cargarResumen._va) return; cargarResumen._va = true;
-  api({ accion: 'api', token: TOKEN, fn: 'appResumen' }, function(r){ cargarResumen._va = false; R = r; R._t = Date.now(); guardarLocal('ic_app_res', JSON.stringify(R)); if (TAB === 'hoy') pintar(); },
+  api({ accion: 'api', token: TOKEN, fn: 'appResumen' }, function(r){ cargarResumen._va = false; R = r; R._t = Date.now(); guardarLocal('ic_app_res', JSON.stringify(R)); if (TAB === 'hoy' || TAB === 'proy') pintar(); },
     function(e){ cargarResumen._va = false; if (sesionMala(e)) return; if (R) { R._error = e.message; if (TAB === 'hoy') pintar(); } }); }
 
 // ---------- navegación: abajo los 5 de diario, arriba ☰ todos los módulos ----------
-var GRUPO_TAB = { nuevo: 'creditos', modificar: 'creditos', dispersar: 'creditos', reportes: 'creditos', movs: 'caja' };
+var GRUPO_TAB = { nuevo: 'creditos', modificar: 'creditos', dispersar: 'creditos', reportes: 'creditos', movs: 'caja', proy: 'caja' };
 function tabs(){ return adm() ? [['hoy','☀️','Hoy'],['cobrar','💬','Cobrar'],['pagos','💵','Pagos'],['creditos','👥','Créditos'],['caja','📊','Caja']] : [['hoy','☀️','Hoy'],['cobrar','💬','Cobrar'],['creditos','👥','Créditos'],['reportes','📄','Reporte']]; }
 function pintarNav(){ var n = $('nav'), on = GRUPO_TAB[TAB] || TAB; if (!adm() && TAB === 'reportes') on = 'reportes'; n.style.display = 'grid'; n.innerHTML = tabs().map(function(t){ return '<button class="' + (on === t[0] ? 'on' : '') + '" onclick="ir(\'' + t[0] + '\')"><b>' + t[1] + '</b>' + t[2] + '</button>'; }).join(''); }
 function ir(t, sub){ TAB = t; if (sub) { if (t === 'pagos') SEGP = sub; } menu(false); cerrarPanel(true); pintarNav(); pintar(); window.scrollTo(0, 0); }
@@ -173,7 +173,7 @@ function menuItems(){
     '<div class="dg">Pagos</div>' + it('pagos', '💵', 'Registrar pago', 'reg') + it('pagos', '↩️', 'Modificar / anular pago', 'corr') +
     '<div class="dg">Cobranza</div>' + it('cobrar', '💬', 'Mensajes del día', '', nA) +
     '<div class="dg">Caja</div>' + it('caja', '📊', 'Saldos y dashboard') + it('movs', '🔁', 'Movimientos de caja') +
-    '<div class="dg">Reportes</div>' + it('reportes', '📄', 'Reporte de un crédito');
+    '<div class="dg">Reportes</div>' + it('proy', '📈', 'Proyectado vs cobrado') + it('reportes', '📄', 'Reporte de un crédito');
 }
 function menu(on){ var d = $('drw'); if (!d) return; if (!on) { d.className = 'drw'; return; }
   d.innerHTML = '<div class="dp" onclick="event.stopPropagation()"><div class="marca" style="font-size:19px;padding:0 8px;">Inversiones Conscientes</div><div class="fecha" style="padding:0 8px;">' + esc(D.yo.nombre) + ' · ' + (adm() ? 'Administrador' : 'Promotora') + '</div>' + menuItems() +
@@ -184,7 +184,7 @@ function cabeza(sub){ var f = new Date(D.hoy + 'T12:00:00');
     '<button class="yo" onclick="cargar()" title="Actualizar">↻</button><button class="yo" onclick="menu(true)">' + esc(primer(D.yo.nombre)) + '</button></div>' +
     (D._cargando ? '<div class="aviso ok" style="display:flex;gap:8px;align-items:center;"><span class="spin" style="width:14px;height:14px;border-width:2px;"></span>Actualizando… (estos datos son de las ' + esc(D._hora || '') + ')</div>' : '') +
     (!D._cargando && D._viejo ? '<div class="aviso a">Sin conexión: estos datos son de las ' + esc(D._hora || '') + '. Toca ↻ cuando tengas señal.</div>' : ''); }
-function pintar(){ if (!D) return; var V = { hoy: vHoy, creditos: vCreditos, cobrar: vCobrar, pagos: vPagos, caja: vCaja, movs: vMovs, dispersar: vDispersar, nuevo: vNuevo, modificar: vModificar, reportes: vReportes };
+function pintar(){ if (!D) return; var V = { hoy: vHoy, creditos: vCreditos, cobrar: vCobrar, pagos: vPagos, caja: vCaja, movs: vMovs, proy: vProy, dispersar: vDispersar, nuevo: vNuevo, modificar: vModificar, reportes: vReportes };
   if (!adm() && ['hoy', 'creditos', 'cobrar', 'reportes'].indexOf(TAB) < 0) TAB = 'hoy'; (V[TAB] || vHoy)(); }
 function activos(){ return D.creditos.filter(function(c){ return !c.porDispersar; }); }
 function credDe(id){ return D.creditos.filter(function(x){ return x.id === id; })[0]; }
@@ -235,12 +235,13 @@ function vResumen(A, venc, prox, pr2, porD){
   if (R && R.tipos && R.tipos.length) { var T = {}; R.tipos.forEach(function(t){ T[t.clave] = t; });
     h += '<div class="mini3">' + [['GRUPAL','Grupales'],['COMPUESTO','Ind. compuesto'],['SIMPLE','Ind. simple']].map(function(x){ var t = T[x[0]] || {}; return '<div>' + x[1] + '<b>' + mm(t.capital) + '</b>' + (t.n || 0) + ' · venc. ' + m(t.vencido) + '</div>'; }).join('') + '</div>'; }
   if (K) h += '<div class="mini3"><div>Por cobrar 7 días<b>' + m(K.prox7) + '</b>' + K.prox7n + ' cuotas</div><div>Cobrado en el mes<b>' + m(K.cobradoMes) + '</b>pagos recibidos</div><div>Detenido<b>' + m(K.detenido) + '</b>demanda / convenio</div></div>';
+  h += '<button class="btn bs" onclick="ir(\'proy\')">📈 Proyectado vs cobrado</button>';
   if (porD.length) h += '<h2 class="sec">Por dispersar<span class="n">' + porD.length + '</span></h2>' + porD.map(function(c){ return '<button class="f" onclick="dspAbrir(\'' + c.id + '\')"><div class="av">' + esc(ini(c.nombre)) + '</div><div class="tx"><div class="nm">' + esc(c.id) + ' · ' + esc(corto(c.nombre)) + '</div><div class="dt">' + (c.modalidad === 'GRUPAL' ? 'grupal' : 'individual') + ' ' + m(c.monto) + ' · firmó ' + esc(c.firma) + '</div></div><span class="chip">Dispersar</span></button>'; }).join('');
   h += '<h2 class="sec">Vencen esta semana<span class="n">' + pr2.length + '</span></h2>' + (pr2.length ? pr2.slice(0, 8).map(function(c){ return filaCred(c, 'prox'); }).join('') + (pr2.length > 8 ? '<button class="btn bs" onclick="ir(\'cobrar\')">Ver los ' + pr2.length + ' en Cobrar</button>' : '') : '<div class="vacio">Nada vence en los próximos 7 días.</div>');
   h += '<h2 class="sec">Vencidos<span class="n r">' + venc.length + '</span></h2>' + (venc.length ? venc.slice(0, 8).map(function(c){ return filaCred(c, 'venc'); }).join('') + (venc.length > 8 ? '<button class="btn bs" onclick="SEGC=\'venc\';ir(\'creditos\')">Ver los ' + venc.length + ' vencidos</button>' : '') : '<div class="vacio">Sin vencidos. 🎉</div>');
   if (R && R.promotores && R.promotores.length > 1) h += '<h2 class="sec">Cartera por promotor</h2>' + R.promotores.map(function(p){ return '<div class="dato"><span>' + esc(corto(p.nombre)) + ' · ' + p.creditos + '</span><span>' + mm(p.capital) + (p.vencido > 0 ? ' · <span style="color:var(--bad)">venc. ' + m(p.vencido) + '</span>' : '') + '</span></div>'; }).join('');
   if (R && R.avisos && R.avisos.length) h += '<h2 class="sec">Avisos del sistema</h2>' + R.avisos.map(function(a){ return '<div class="aviso a">' + esc(a) + '</div>'; }).join('');
-  if (R && R._t) h += '<p class="mini">Números del dashboard de las ' + new Date(R._t).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) + '.</p>';
+  if (R && R._t) h += '<p class="mini">Números del dashboard de las ' + new Date(R._t).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) + '</p>';
   $('app').innerHTML = h + '</div>';
 }
 
@@ -294,6 +295,9 @@ function ficha(id){ var c = credDe(id); if (!c) return;
 // ---------- COBRAR: grupales / individuales compuesto / simple ----------
 function vCobrar(){ var M = D.mensajes || {}, todos = SEGM === 'rec' ? (M.recordatorio || []) : (M.atrasos || []);
   var cuenta = function(L, k){ return L.filter(function(x){ return tipoK(credDe(x.idCred)) === k; }).length; };
+  if (!vCobrar._ya) { vCobrar._ya = 1; var tot = function(k){ return cuenta(M.recordatorio || [], k) + cuenta(M.atrasos || [], k); }; if (!tot(SEGT)) { var k1 = ['G','C','S'].filter(function(k){ return tot(k) > 0; })[0]; if (k1) SEGT = k1; }
+    if (!cuenta(SEGM === 'rec' ? (M.recordatorio || []) : (M.atrasos || []), SEGT)) SEGM = SEGM === 'rec' ? 'atr' : 'rec'; }
+  todos = SEGM === 'rec' ? (M.recordatorio || []) : (M.atrasos || []);
   var L = todos.filter(function(x){ return tipoK(credDe(x.idCred)) === SEGT; });
   var h = '<div class="w">' + cabeza('Cobrar') +
     '<div class="seg3">' + [['G','Grupales'],['C','Ind. compuesto'],['S','Ind. simple']].map(function(t){ var n = cuenta(M.recordatorio || [], t[0]) + cuenta(M.atrasos || [], t[0]); return '<button class="' + (SEGT === t[0] ? 'on' : '') + '" onclick="SEGT=\'' + t[0] + '\';vCobrar()">' + t[1] + ' ' + n + '</button>'; }).join('') + '</div>' +
@@ -606,7 +610,7 @@ function vCaja(){ cajaCargar(false); var C = (CX && CX.caja && CX.caja.activa) ?
   if (R && R.kpi) { var K = R.kpi; h += '<h2 class="sec">Dashboard</h2><div class="mini3"><div>Cartera viva<b>' + mm(K.capital) + '</b>' + K.creditos + ' créditos</div><div>Por cobrar<b>' + mm(K.porCobrar) + '</b>capital + interés</div><div>Mora<b>' + (Number(K.mora) || 0).toFixed(1) + '%</b>' + m(K.vencido) + '</div></div>' +
     (R.mes ? '<div class="msg" style="margin-top:8px;"><div class="dato"><span>' + esc(R.mes.label) + ': cobrado</span><span>' + m(R.mes.cobrado) + ' de ' + m(R.mes.programado) + '</span></div><div class="bar"><i style="width:' + (R.mes.programado ? Math.min(100, Math.round(R.mes.cobrado / R.mes.programado * 100)) : 0) + '%"></i></div></div>' : '') +
     (R.tipos || []).map(function(t){ return '<div class="dato"><span>' + esc(t.nombre) + ' · ' + t.n + '</span><span>' + mm(t.capital) + (t.vencido > 0 ? ' · <span style="color:var(--bad)">' + m(t.vencido) + '</span>' : '') + '</span></div>'; }).join(''); }
-  h += '<div class="acc" style="margin-top:14px;grid-template-columns:1fr 1fr;"><button onclick="movAbrir()"><b>＋</b>Registrar movimiento</button><button onclick="ir(\'movs\')"><b>🔁</b>Ver movimientos</button></div>';
+  h += '<div class="acc" style="margin-top:14px;grid-template-columns:1fr 1fr;"><button onclick="movAbrir()"><b>＋</b>Registrar movimiento</button><button onclick="ir(\'movs\')"><b>🔁</b>Ver movimientos</button></div><button class="btn bs" onclick="ir(\'proy\')">📈 Proyectado vs cobrado</button>';
   $('app').innerHTML = h + '</div>'; }
 var MT = { GASTO: 'Gasto', TRASPASO: 'Traspaso', APORTACION: 'Aportación', RETIRO: 'Devolución de capital', RENDIMIENTO: 'Pago de rendimiento', REINVERSION: 'Intereses → capital', AJUSTE: 'Ajuste', CONTEO: 'Conteo' };
 function vMovs(){ cajaCargar(false); var h = '<div class="w">' + cabeza('Movimientos de caja') + '<button class="btn bp" style="margin-top:0;" onclick="movAbrir()">＋ Registrar movimiento</button>';
@@ -670,6 +674,82 @@ function repPintar(d){ var c = d.credito, t = d.totales, debe = (t.vencido || 0)
   var l = wa(c.telefono, txt);
   h += l ? '<a class="btn bw" target="_blank" href="' + l + '">Compartir estado de cuenta por WhatsApp</a>' : '';
   abrirPanel(h + '</div>'); }
+
+// ---------- PROYECTADO vs COBRADO (la sección "Pagos" del dashboard, sin gráficas) ----------
+var PY = null;
+function n8(d){ return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate(); }
+function fdN(n){ return ('0' + (n % 100)).slice(-2) + '/' + ('0' + (Math.floor(n / 100) % 100)).slice(-2) + '/' + Math.floor(n / 10000); }
+function isoN(n){ return Math.floor(n / 10000) + '-' + ('0' + (Math.floor(n / 100) % 100)).slice(-2) + '-' + ('0' + (n % 100)).slice(-2); }
+function pyRango(q){ var h = new Date(); h.setHours(0, 0, 0, 0); var a = new Date(h), b = new Date(h);
+  if (q === 'SEMANA') { a.setDate(a.getDate() - ((a.getDay() + 6) % 7)); b = new Date(a.getFullYear(), a.getMonth(), a.getDate() + 6); }
+  if (q === 'QUIN') { if (h.getDate() <= 15) { a.setDate(1); b = new Date(h.getFullYear(), h.getMonth(), 15); } else { a.setDate(16); b = new Date(h.getFullYear(), h.getMonth() + 1, 0); } }
+  if (q === 'MES') { a.setDate(1); b = new Date(h.getFullYear(), h.getMonth() + 1, 0); }
+  PY.r = q; PY.a = n8(a); PY.b = n8(b);
+  if (q === 'TODO') { var ds = R && R.proy && R.proy.desde ? R.proy.desde.split('-') : null; PY.a = ds ? +ds.join('') : 0; PY.b = n8(h); }
+  PY.caja = ''; pintar(); }
+function vProy(){
+  if (!PY) { PY = { base: 'V', r: 'MES', a: 0, b: 0, mod: '', fre: '', prom: '', ori: '', q: '', caja: '', ch: 'T' }; pyRango('MES'); return; }
+  var h = '<div class="w">' + cabeza('Proyectado vs cobrado');
+  if (!R || !R.proy) { cargarResumen(true); $('app').innerHTML = h + cargando('Trayendo los números del dashboard…') + '</div>'; return; }
+  var P = R.proy, C = P.creditos, tk = {}; C.forEach(function(c){ tk[c[0]] = c[2] === 'G' ? 'G' : c[3]; });
+  var uniq = function(L){ var o = {}; L.forEach(function(x){ if (x) o[x] = 1; }); return Object.keys(o).sort(); };
+  var fres = uniq(C.map(function(c){ return c[1]; })), proms = uniq(C.map(function(c){ return c[5]; }).concat(P.pagos.map(function(p){ return p[6]; }))), oris = uniq(C.map(function(c){ return c[6]; }).concat(P.pagos.map(function(p){ return p[7]; })));
+  var sel = function(k, L, todos){ return '<select onchange="PY.' + k + '=this.value;PY.caja=\'\';pintar()"><option value="">' + todos + '</option>' + L.map(function(x){ var v = typeof x === 'string' ? x : x[0], t = typeof x === 'string' ? x : x[1]; return '<option value="' + esc(v) + '"' + (PY[k] === v ? ' selected' : '') + '>' + esc(t) + '</option>'; }).join('') + '</select>'; };
+  h += '<div class="seg3"><button class="' + (PY.base === 'V' ? 'on' : '') + '" onclick="PY.base=\'V\';PY.caja=\'\';pintar()">Por vencimiento (lo que tocaba)</button><button class="' + (PY.base === 'P' ? 'on' : '') + '" onclick="PY.base=\'P\';PY.caja=\'\';pintar()">Por pago (lo que entró)</button></div>' +
+    '<div class="seg">' + [['HOY','Hoy'],['SEMANA','Semana'],['QUIN','Quincena'],['MES','Mes'],['TODO','Todo']].map(function(x){ return '<button class="' + (PY.r === x[0] ? 'on' : '') + '" onclick="pyRango(\'' + x[0] + '\')">' + x[1] + '</button>'; }).join('') + '</div>' +
+    '<div class="grid2"><label class="fld" style="margin-top:0;">Desde<input type="date" value="' + isoN(PY.a) + '" onchange="PY.a=+this.value.replace(/-/g,\'\');PY.r=\'\';PY.caja=\'\';pintar()"></label><label class="fld" style="margin-top:0;">Hasta<input type="date" value="' + isoN(PY.b) + '" onchange="PY.b=+this.value.replace(/-/g,\'\');PY.r=\'\';PY.caja=\'\';pintar()"></label>' +
+    '<label class="fld">Modalidad' + sel('mod', [['G','Grupales'],['C','Ind. compuesto'],['S','Ind. simple']], 'Todas') + '</label><label class="fld">Frecuencia' + sel('fre', fres, 'Todas') + '</label>' +
+    '<label class="fld">Promotor' + sel('prom', proms, 'Todos') + '</label><label class="fld">Origen' + sel('ori', oris, 'Todos') + '</label></div>' +
+    '<input class="bus" style="margin-top:10px;" placeholder="Buscar ID o nombre" value="' + esc(PY.q) + '" onchange="PY.q=this.value;PY.caja=\'\';pintar()">';
+  var q = norm(PY.q), ok = function(id, nom, k, fre, prom, ori){ if (PY.mod && k !== PY.mod) return false; if (PY.fre && fre !== PY.fre) return false; if (PY.prom && prom !== PY.prom) return false; if (PY.ori && ori !== PY.ori) return false; return !q || norm(id + ' ' + nom).indexOf(q) >= 0; };
+  var pc = function(r, p){ return p > 0.5 ? Math.round(r / p * 100) + '%' : '—'; };
+  var lnk = function(id){ return '<a href="#" onclick="pyCred(\'' + id + '\');return false;" style="color:var(--ac);font-weight:700;">' + esc(id) + '</a>'; };
+  if (PY.base === 'V') {
+    var CU = [], T = { pT: 0, pC: 0, pI: 0, rT: 0, rC: 0, rI: 0 }, dia = {};
+    P.cuotas.forEach(function(x){ if (x[1] < PY.a || x[1] > PY.b) return; var c = C[x[0]]; if (!c) return; var k = c[2] === 'G' ? 'G' : c[3];
+      if (!ok(c[0], c[4], k, c[1], c[5], c[6])) return;
+      var tot = x[2], cap = x[4] || 0, it = x[5] || 0, cob = Math.min(x[3], x[2]), rc = Math.min(cob, cap), ri = Math.min(it, Math.max(0, cob - cap));
+      CU.push({ fv: x[1], id: c[0], nombre: c[4], tipo: k === 'G' ? 'Grupal' : (k === 'S' ? 'Simple' : 'Compuesto'), num: x[6], pT: tot, pC: cap, pI: it, rT: cob, rC: rc, rI: ri });
+      T.pT += tot; T.pC += cap; T.pI += it; T.rT += cob; T.rC += rc; T.rI += ri;
+      var d = dia[x[1]] = dia[x[1]] || { pT: 0, rT: 0, pC: 0, rC: 0, pI: 0, rI: 0 }; d.pT += tot; d.rT += cob; d.pC += cap; d.rC += rc; d.pI += it; d.rI += ri; });
+    var caja = function(k, tt, p, r){ var df = p - r; return '<button class="k" style="text-align:left;cursor:pointer;' + (PY.caja === k ? 'border-color:var(--ac);box-shadow:0 0 0 2px var(--acs);' : '') + '" onclick="PY.caja=PY.caja===\'' + k + '\'?\'\':\'' + k + '\';pintar()"><div class="t">' + tt + ' · ' + pc(r, p) + ' cobrado</div>' +
+      '<div class="dato" style="border:0;padding:3px 0;"><span>Proyectado</span><span>' + m(p) + '</span></div><div class="dato" style="border:0;padding:3px 0;"><span>Cobrado</span><span style="color:var(--ac)">' + m(r) + '</span></div><div class="dato" style="border:0;padding:3px 0;"><span>Diferencia</span><span style="color:' + (df > 0.5 ? 'var(--bad)' : 'var(--ac)') + '">' + (df > 0.5 ? m(df) : '✓') + '</span></div>' +
+      '<div class="bar"><i style="width:' + (p > 0.5 ? Math.min(100, Math.round(r / p * 100)) : 0) + '%"></i></div></button>'; };
+    var nP = CU.filter(function(r){ return r.pT - r.rT <= 0.5; }).length;
+    h += '<div class="kpis" style="margin-top:4px;">' + caja('T', 'Total', T.pT, T.rT) + caja('C', 'Capital', T.pC, T.rC) + caja('I', 'Interés', T.pI, T.rI) +
+      '<button class="k" style="text-align:left;cursor:pointer;' + (PY.caja === 'P' ? 'border-color:var(--ac);box-shadow:0 0 0 2px var(--acs);' : '') + '" onclick="PY.caja=PY.caja===\'P\'?\'\':\'P\';pintar()"><div class="t">Cuotas pagadas · ' + pc(nP, CU.length) + '</div><div class="v">' + nP + ' / ' + CU.length + '</div><div class="s">toca para ver las que faltan</div></button></div>' +
+      '<p class="mini">Proyectado = cuotas que vencen en el rango. Cobrado = lo pagado de esas cuotas, aunque haya entrado antes o después. Toca un recuadro para ver su lista.</p>';
+    if (PY.caja) { var kk = PY.caja === 'P' ? 'T' : PY.caja, pk = 'p' + kk, rk = 'r' + kk;
+      var L = CU.filter(function(r){ return r[pk] > 0.5 && (PY.caja !== 'P' || r.pT - r.rT > 0.5); }).sort(function(x, y){ return ((y[pk] - y[rk]) - (x[pk] - x[rk])) || x.fv - y.fv; }), tp = 0, tr = 0;
+      L.forEach(function(r){ tp += r[pk]; tr += r[rk]; });
+      h += '<h2 class="sec">' + ({ T: 'Total', C: 'Capital', I: 'Interés', P: 'Cuotas que faltan' })[PY.caja] + '<span class="n">' + L.length + '</span></h2><table class="cu"><tr><th>Vence</th><th>Crédito</th><th class="r">Proy.</th><th class="r">Cobr.</th><th class="r">Falta</th></tr>' +
+        L.slice(0, 250).map(function(r){ var df = r[pk] - r[rk]; return '<tr><td>' + fdN(r.fv).slice(0, 5) + '</td><td>' + lnk(r.id) + '<div class="mini">' + esc(corto(r.nombre)) + ' · ' + r.tipo + ' #' + r.num + '</div></td><td class="r">' + m(r[pk]) + '</td><td class="r">' + m(r[rk]) + '</td><td class="r"' + (df > 0.5 ? ' style="color:var(--bad);font-weight:700;"' : '') + '>' + (df > 0.5 ? m(df) : '✓') + '</td></tr>'; }).join('') +
+        (L.length > 250 ? '<tr><td colspan="5" class="mini">Se muestran 250 de ' + L.length + '. Acota el rango.</td></tr>' : '') +
+        '<tr><td colspan="2"><b>Total</b></td><td class="r"><b>' + m(tp) + '</b></td><td class="r"><b>' + m(tr) + '</b></td><td class="r" style="color:var(--bad);"><b>' + m(tp - tr) + '</b></td></tr></table>'; }
+    var ks = Object.keys(dia).map(Number).sort(function(x, y){ return x - y; });
+    h += '<h2 class="sec">Por día de vencimiento</h2><div class="seg3">' + [['T','Total'],['C','Capital'],['I','Interés']].map(function(x){ return '<button class="' + (PY.ch === x[0] ? 'on' : '') + '" onclick="PY.ch=\'' + x[0] + '\';pintar()">' + x[1] + '</button>'; }).join('') + '</div>' +
+      (ks.length ? '<table class="cu"><tr><th>Día</th><th class="r">Proyectado</th><th class="r">Cobrado</th><th class="r">Falta</th></tr>' + ks.map(function(k){ var d = dia[k], p = d['p' + PY.ch], r = d['r' + PY.ch], df = p - r;
+        return '<tr><td>' + fdN(k).slice(0, 5) + '</td><td class="r">' + m(p) + '</td><td class="r" style="color:var(--ac)">' + m(r) + '</td><td class="r"' + (df > 0.5 ? ' style="color:var(--bad);font-weight:700;"' : '') + '>' + (df > 0.5 ? m(df) : '✓') + '</td></tr>'; }).join('') + '</table>' : '<div class="vacio">No vencen cuotas en ese rango con estos filtros.</div>');
+  } else {
+    var L2 = P.pagos.filter(function(p){ if (!p[0] || p[0] < PY.a || p[0] > PY.b) return false; var k = p[4] === 'G' ? 'G' : (tk[p[2]] || 'C'); return ok(p[2], p[3], k, p[5], p[6], p[7]); });
+    var nc = function(c){ return c === 'RENOVACION' || c === 'CONSOLIDACION'; }, T2 = { n: 0, tot: 0, cap: 0, int: 0, mor: 0 }, R2 = { n: 0, tot: 0, int: 0 }, cta = {}, dia2 = {};
+    L2.forEach(function(p){ if (nc(p[12])) { R2.n++; R2.tot += p[11]; R2.int += p[9]; return; } T2.n++; T2.tot += p[11]; T2.cap += p[8]; T2.int += p[9]; T2.mor += p[10]; cta[p[12]] = (cta[p[12]] || 0) + p[9];
+      var d = dia2[p[0]] = dia2[p[0]] || { C: 0, I: 0, M: 0, T: 0 }; d.C += p[8]; d.I += p[9]; d.M += p[10]; d.T += p[11]; });
+    var pT = function(v){ return T2.tot > 0.5 ? Math.round(v / T2.tot * 1000) / 10 + '% del total' : '—'; };
+    var kp = function(k, tt, v, sub, rojo){ return '<button class="k' + (k === 'T' ? ' p' : '') + '" style="text-align:left;cursor:pointer;' + (PY.caja === k ? 'box-shadow:0 0 0 2px var(--ac);' : '') + '" onclick="PY.caja=PY.caja===\'' + k + '\'?\'\':\'' + k + '\';pintar()"><div class="t">' + tt + '</div><div class="v">' + m(v) + '</div><div class="s">' + sub + '</div></button>'; };
+    h += '<div class="kpis" style="margin-top:4px;">' + kp('T', 'Total que entró', T2.tot, T2.n + ' pago(s)') + kp('C', 'Capital', T2.cap, pT(T2.cap)) + kp('I', 'Interés', T2.int, pT(T2.int)) + kp('M', 'Moratorio', T2.mor, pT(T2.mor)) + '</div>' +
+      '<p class="mini">' + (Object.keys(cta).length ? 'Interés por cuenta: ' + Object.keys(cta).sort().map(function(k){ return esc(k) + ' ' + m(cta[k]); }).join(' · ') + '. ' : '') + (R2.n ? '<span style="color:var(--warn)">Aparte, descontado en renovaciones (no entró a caja): ' + m(R2.tot) + ' en ' + R2.n + ' pago(s), ' + m(R2.int) + ' de interés.</span> ' : '') + 'Toca un recuadro para ver sus pagos.</p>';
+    if (PY.caja) { var campo = { T: 11, C: 8, I: 9, M: 10 }[PY.caja], L3 = L2.filter(function(p){ return !nc(p[12]) && p[campo] > 0.005; }).sort(function(x, y){ return y[0] - x[0] || y[campo] - x[campo]; });
+      h += '<h2 class="sec">' + ({ T: 'Pagos', C: 'Capital', I: 'Interés', M: 'Moratorio' })[PY.caja] + '<span class="n">' + L3.length + '</span></h2><table class="cu"><tr><th>Pagó</th><th>Crédito</th><th class="r">Monto</th></tr>' +
+        L3.slice(0, 250).map(function(p){ var dd = p[1] ? Math.round((new Date(isoN(p[0]) + 'T12:00:00') - new Date(isoN(p[1]) + 'T12:00:00')) / 864e5) : 0;
+          return '<tr><td>' + fdN(p[0]).slice(0, 5) + (p[1] && dd !== 0 ? '<div class="mini" style="color:' + (dd < 0 ? 'var(--ac)' : 'var(--bad)') + '">' + Math.abs(dd) + ' d ' + (dd < 0 ? 'antes' : 'tarde') + '</div>' : '') + '</td><td>' + lnk(p[2]) + '<div class="mini">' + esc(corto(p[3])) + ' · ' + esc(p[12]) + ' · ' + esc(String(p[13]).toLowerCase()) + '</div></td><td class="r"><b>' + m(p[campo]) + '</b></td></tr>'; }).join('') +
+        (L3.length > 250 ? '<tr><td colspan="3" class="mini">Se muestran 250 de ' + L3.length + '.</td></tr>' : '') + '<tr><td colspan="2"><b>Total</b></td><td class="r"><b>' + m(L3.reduce(function(s, p){ return s + p[campo]; }, 0)) + '</b></td></tr></table>'; }
+    var ks2 = Object.keys(dia2).map(Number).sort(function(x, y){ return y - x; });
+    h += '<h2 class="sec">Por día de pago</h2>' + (ks2.length ? '<table class="cu"><tr><th>Día</th><th class="r">Capital</th><th class="r">Interés</th><th class="r">Total</th></tr>' + ks2.map(function(k){ var d = dia2[k]; return '<tr><td>' + fdN(k).slice(0, 5) + '</td><td class="r">' + m(d.C) + '</td><td class="r" style="color:var(--ac)">' + m(d.I) + (d.M > 0.5 ? '<div class="mini">+ mora ' + m(d.M) + '</div>' : '') + '</td><td class="r"><b>' + m(d.T) + '</b></td></tr>'; }).join('') + '</table>' : '<div class="vacio">No entraron pagos en ese rango con estos filtros.</div>');
+  }
+  if (R._t) h += '<p class="mini">Números del dashboard de las ' + new Date(R._t).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }) + ' · toca ↻ para actualizar.</p>';
+  $('app').innerHTML = h + '</div>'; }
+function pyCred(id){ if (credDe(id)) ficha(id); else repAbrir(id); }
 
 // ---------- inicio ----------
 document.addEventListener('click', function(e){ var d = $('drw'); if (d && e.target === d) menu(false); var mo = $('modal'); if (mo && e.target === mo) cerrarModal(); });
