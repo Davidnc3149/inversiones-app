@@ -147,8 +147,9 @@ function salir(){ if (TOKEN) api({ accion: 'salir', token: TOKEN }, function(){}
 function cargar(){
   if (!D) { var g0 = leerLocal('ic_app_datos'); if (g0) { try { D = JSON.parse(g0); } catch (x) { D = null; } } }
   if (D) { D._cargando = true; pintarNav(); pintar(); } else $('app').innerHTML = cargando('Cargando tu cartera…');
+  if (D && adm()) cargarResumen(true);   // v2.2: en paralelo con la cartera (antes esperaba a que terminara)
   api({ accion: 'api', token: TOKEN, fn: 'appDatos' }, function(d){ var y = window.scrollY; D = d; D._hora = new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }); D._viejo = false; D._cargando = false; guardarLocal('ic_app_datos', JSON.stringify(D)); pintarNav(); pintar(); window.scrollTo(0, y);
-      if (adm()) cargarResumen(true); },
+      if (adm()) cargarResumen(false); },
     function(e){ if (sesionMala(e)) return;
       if (D) { D._cargando = false; D._viejo = true; D._error = e.message; pintarNav(); pintar(); return; } errorGen(e); }); }
 // Resumen del dashboard (solo administradores): se guarda en el celular y se actualiza por detrás
@@ -163,7 +164,7 @@ function cargarResumen(forzar){
 var GRUPO_TAB = { nuevo: 'creditos', modificar: 'creditos', dispersar: 'creditos', reportes: 'creditos', movs: 'caja', proy: 'caja' };
 function tabs(){ return adm() ? [['hoy','☀️','Hoy'],['cobrar','💬','Cobrar'],['pagos','💵','Pagos'],['creditos','👥','Créditos'],['caja','📊','Caja']] : [['hoy','☀️','Hoy'],['cobrar','💬','Cobrar'],['creditos','👥','Créditos'],['reportes','📄','Reporte']]; }
 function pintarNav(){ var n = $('nav'), on = GRUPO_TAB[TAB] || TAB; if (!adm() && TAB === 'reportes') on = 'reportes'; n.style.display = 'grid'; n.innerHTML = tabs().map(function(t){ return '<button class="' + (on === t[0] ? 'on' : '') + '" onclick="ir(\'' + t[0] + '\')"><b>' + t[1] + '</b>' + t[2] + '</button>'; }).join(''); }
-function ir(t, sub){ TAB = t; if (sub) { if (t === 'pagos') SEGP = sub; } menu(false); cerrarPanel(true); pintarNav(); pintar(); window.scrollTo(0, 0); }
+function ir(t, sub){ TAB = t; if (sub) { if (t === 'pagos') SEGP = sub; } menu(false); cerrarPanel(); pintarNav(); pintar(); window.scrollTo(0, 0); }
 function menuItems(){
   var nD = D ? D.creditos.filter(function(c){ return c.porDispersar; }).length : 0, nA = D && D.mensajes ? (D.mensajes.atrasos || []).length : 0;
   var it = function(t, ic, txt, sub, b){ var on = TAB === t && (!sub || (t === 'pagos' && SEGP === sub)); return '<button class="di' + (on ? ' on' : '') + '" onclick="ir(\'' + t + '\'' + (sub ? ',\'' + sub + '\'' : '') + ')">' + ic + ' ' + txt + (b ? '<small>' + b + '</small>' : '') + '</button>'; };
@@ -197,9 +198,11 @@ function filaCred(c, modo, accion){
     '<div class="mt">' + m(mo) + (modo === 'venc' ? '<small>' + c.diasAtraso + ' día' + (c.diasAtraso === 1 ? '' : 's') + '</small>' : '') + '</div></button>';
 }
 function fechaT(s){ var p = String(s || '').split('/'); return p.length === 3 ? new Date(+p[2], +p[1] - 1, +p[0]).getTime() : 0; }
-function abrirPanel(h){ var p = $('panel'), ya = p.style.display === 'block'; p.innerHTML = h; p.style.display = 'block'; p.scrollTop = 0; if (!ya && history.pushState) history.pushState({ f: 1 }, ''); }
-function cerrarPanel(sinHist){ $('panel').style.display = 'none'; $('panel').innerHTML = ''; cerrarModal(); }
-window.onpopstate = function(){ if ($('modal').className.indexOf('on') >= 0) { cerrarModal(); return; } if ($('panel').style.display === 'block') cerrarPanel(); else if ($('drw').className.indexOf('on') >= 0) menu(false); };
+var PANEL_H = false;
+function abrirPanel(h){ var p = $('panel'), ya = p.style.display === 'block'; p.innerHTML = h; p.style.display = 'block'; p.scrollTop = 0; if (!ya && history.pushState) { history.pushState({ f: 1 }, ''); PANEL_H = true; } }
+// v2.2: al cerrar con un botón también se quita la entrada del historial (así "atrás" del celular no se traba)
+function cerrarPanel(){ var abierto = $('panel').style.display === 'block'; $('panel').style.display = 'none'; $('panel').innerHTML = ''; cerrarModal(); if (abierto && PANEL_H) { PANEL_H = false; history.back(); } }
+window.onpopstate = function(){ if ($('modal').className.indexOf('on') >= 0) { cerrarModal(); if ($('panel').style.display === 'block' && history.pushState) history.pushState({ f: 1 }, ''); return; } if ($('panel').style.display === 'block') { PANEL_H = false; cerrarPanel(); } else if ($('drw').className.indexOf('on') >= 0) menu(false); };
 function cerrarModal(){ var mo = $('modal'); if (mo) { mo.className = 'modal'; mo.innerHTML = ''; } }
 function abrirModal(h){ var mo = $('modal'); mo.innerHTML = '<div class="mbox" onclick="event.stopPropagation()">' + h + '</div>'; mo.className = 'modal on'; }
 
