@@ -88,6 +88,7 @@
 <div id="panel" class="panel" style="display:none;"></div>
 <div id="drw" class="drw"></div>
 <div id="modal" class="modal"></div>
+<div id="modal2" class="modal" style="z-index:60;"></div>
 <script>
 var TOKEN = '', D = null, R = null, TAB = 'hoy', FILTRO = '', SEGC = 'todos', SEGM = 'rec', SEGT = 'G', SEGP = 'reg', CX = null, DL = null;
 function $(i){ return document.getElementById(i); }
@@ -202,7 +203,13 @@ var PANEL_H = false;
 function abrirPanel(h){ var p = $('panel'), ya = p.style.display === 'block'; p.innerHTML = h; p.style.display = 'block'; p.scrollTop = 0; if (!ya && history.pushState) { history.pushState({ f: 1 }, ''); PANEL_H = true; } }
 // v2.2: al cerrar con un botón también se quita la entrada del historial (así "atrás" del celular no se traba)
 function cerrarPanel(){ var abierto = $('panel').style.display === 'block'; $('panel').style.display = 'none'; $('panel').innerHTML = ''; cerrarModal(); if (abierto && PANEL_H) { PANEL_H = false; history.back(); } }
-window.onpopstate = function(){ if ($('modal').className.indexOf('on') >= 0) { cerrarModal(); if ($('panel').style.display === 'block' && history.pushState) history.pushState({ f: 1 }, ''); return; } if ($('panel').style.display === 'block') { PANEL_H = false; cerrarPanel(); } else if ($('drw').className.indexOf('on') >= 0) menu(false); };
+window.onpopstate = function(){ if ($('modal2').className.indexOf('on') >= 0) { cerrarCred(); if ($('panel').style.display === 'block' && history.pushState) history.pushState({ f: 1 }, ''); return; } if ($('modal').className.indexOf('on') >= 0) { cerrarModal(); if ($('panel').style.display === 'block' && history.pushState) history.pushState({ f: 1 }, ''); return; } if ($('panel').style.display === 'block') { PANEL_H = false; cerrarPanel(); } else if ($('drw').className.indexOf('on') >= 0) menu(false); };
+// v2.3: ver un crédito en una ventana emergente (desde Dispersar: anterior, abonos y sugeridos)
+function verCred(id, ev){ if (ev) { ev.preventDefault(); ev.stopPropagation(); } var mo = $('modal2');
+  mo.innerHTML = '<div class="mbox" onclick="event.stopPropagation()"><div style="display:flex;justify-content:flex-end;"><a href="#" onclick="cerrarCred();return false;" style="font-size:20px;text-decoration:none;color:var(--mu);">✕</a></div>' + cargando('Trayendo ' + id + '…') + '</div>'; mo.className = 'modal on';
+  leer('appReporte', [id], function(d){ if (mo.className.indexOf('on') < 0) return; mo.innerHTML = '<div class="mbox" onclick="event.stopPropagation()"><div style="display:flex;justify-content:space-between;align-items:center;"><span class="mini">Información del crédito</span><a href="#" onclick="cerrarCred();return false;" style="font-size:20px;text-decoration:none;color:var(--mu);">✕</a></div>' + repCuerpo(d, true) + '<button class="btn bs" onclick="cerrarCred()">Cerrar</button></div>'; },
+    function(e){ mo.innerHTML = '<div class="mbox"><div class="aviso r">' + esc(e.message) + '</div><button class="btn bs" onclick="cerrarCred()">Cerrar</button></div>'; }); return false; }
+function cerrarCred(){ var mo = $('modal2'); mo.className = 'modal'; mo.innerHTML = ''; }
 function cerrarModal(){ var mo = $('modal'); if (mo) { mo.className = 'modal'; mo.innerHTML = ''; } }
 function abrirModal(h){ var mo = $('modal'); mo.innerHTML = '<div class="mbox" onclick="event.stopPropagation()">' + h + '</div>'; mo.className = 'modal on'; }
 
@@ -455,7 +462,7 @@ function dspPintar(){ var d = DP, x = dspX(); if (!d || !x) return;
   h += (D2.avisos || []).map(function(t){ return '<div class="aviso a" style="margin-top:8px;">⚠️ ' + esc(t) + '</div>'; }).join('');
   h += '<h2 class="sec">1 · Crédito anterior</h2>';
   if (D2.anteriores.length) {
-    h += D2.anteriores.map(function(s){ return '<label class="op"><input type="radio" name="dAnt"' + (s.id === d.sel ? ' checked' : '') + ' onchange="dspElegirAnt(\'' + s.id + '\')"><span><b>' + esc(s.id) + '</b> · ' + esc(corto(s.nombre)) + '<small>' + (s.grupo ? '👥 grupo anterior · siguen ' + (s.siguen || []).length + ' de ' + ((s.siguen || []).length + (s.noEntraron || []).length) : esc(s.motivo || '')) + ' · debe ' + m(s.total) + '</small></span></label>'; }).join('') +
+    h += D2.anteriores.map(function(s){ return '<label class="op"><input type="radio" name="dAnt"' + (s.id === d.sel ? ' checked' : '') + ' onchange="dspElegirAnt(\'' + s.id + '\')"><span><b>' + esc(s.id) + '</b> · ' + esc(corto(s.nombre)) + ' ' + '<a href="#" onclick="return verCred(\'' + s.id + '\', event)" style="color:var(--ac);font-weight:700;white-space:nowrap;">🔎 ver</a>' + '<small>' + (s.grupo ? '👥 grupo anterior · siguen ' + (s.siguen || []).length + ' de ' + ((s.siguen || []).length + (s.noEntraron || []).length) : esc(s.motivo || '')) + ' · debe ' + m(s.total) + '</small></span></label>'; }).join('') +
       '<label class="op"><input type="radio" name="dAnt"' + (!d.sel ? ' checked' : '') + ' onchange="dspElegirAnt(\'\')"><span>No descontar<small>se entrega completo</small></span></label>';
     if (a && !a.confiable) h += '<div class="aviso a">No se puede saber cuánto debe cada quien en ' + esc(a.id) + ' (' + esc(a.motivoNoConfiable || 'sin desglose') + '). Total a descontar (de ' + m(a.total) + '):<input type="number" inputmode="decimal" value="' + esc(d.manual) + '" oninput="DP.manual=this.value;dspTotales();dspPie()" style="display:block;width:100%;margin-top:6px;border:1px solid var(--ln);border-radius:10px;padding:8px;background:var(--sf);"></div>';
     if (a && a.yaPagaron) h += '<div class="aviso ok">✅ Los que no entraron ya pagaron su parte: descontando lo de los demás, ' + esc(a.id) + ' queda liquidado.</div>';
@@ -464,11 +471,11 @@ function dspPintar(){ var d = DP, x = dspX(); if (!d || !x) return;
   D2.filas.forEach(function(f, k){ var ps = dspDebeFila(k), ent = dspEntFila(k), debe = '';
     if (a && a.confiable) { if (!ps) debe = '<span class="chip g" style="margin:0;">nuevo</span>'; else { var tot = ps.reduce(function(s, p){ return s + p.total; }, 0);
       debe = tot > 0 ? '<label style="display:flex;gap:6px;align-items:center;"><input type="checkbox" style="width:18px;height:18px;accent-color:var(--ac);"' + (ps.every(function(p){ return DP.incl[p.id]; }) ? ' checked' : '') + ' onchange="dspIncl(' + k + ', this.checked)">descontar ' + m(tot) + ' de ' + esc(a.id) + '</label>' : '<span style="color:var(--ac)">✓ al corriente en ' + esc(a.id) + '</span>'; } }
-    var abs = (DP.abonos[k] || []).map(function(ab, j){ return '<span class="chip a">' + esc(ab.cred) + ' · ' + m(ab.monto) + ' <a href="#" onclick="abAbrir(' + k + ',' + j + ');return false;">✏️</a> <a href="#" onclick="DP.abonos[' + k + '].splice(' + j + ',1);dspTotales();dspPintar();return false;">✕</a></span>'; }).join('');
+    var abs = (DP.abonos[k] || []).map(function(ab, j){ return '<span class="chip a"><a href="#" onclick="return verCred(\'' + ab.cred + '\', event)" style="color:inherit;">' + esc(ab.cred) + ' 🔎</a> · ' + m(ab.monto) + ' <a href="#" onclick="abAbrir(' + k + ',' + j + ');return false;">✏️</a> <a href="#" onclick="DP.abonos[' + k + '].splice(' + j + ',1);dspTotales();dspPintar();return false;">✕</a></span>'; }).join('');
     var s0 = (f.sug || []).filter(function(sg){ return sg.id !== d.sel && !(DP.abonos[k] || []).some(function(ab){ return ab.cred === sg.id; }); })[0];
     h += '<div class="pers' + (ent < -0.5 ? ' mal' : '') + '"><div class="l1"><b>' + esc(corto(f.nombre)) + (f.ancla && D2.grupal ? ' <span class="chip" style="margin:0;">ancla</span>' : '') + '</b><span class="mini">le toca ' + m(f.monto) + (D2.grupal ? ' · ' + m(f.pago) + '/sem' : '') + '</span></div>' +
       (debe ? '<div class="l2">' + debe + '</div>' : '') + (abs ? '<div style="margin-top:6px;">' + abs + '</div>' : '') +
-      (s0 ? '<div class="mini" style="margin-top:4px;">💡 ' + (s0.rol === 'suyo' ? 'tiene ' : 'es ' + esc(s0.rol) + ' en ') + esc(s0.id) + (s0.vencido > 0 ? ' · <span style="color:var(--bad)">vencido ' + m(s0.vencido) + '</span>' : (s0.prox ? ' · vence ' + esc(s0.prox.fecha) + ' ' + m(s0.prox.falta) : '')) + '</div>' : '') +
+      (s0 ? '<div class="mini" style="margin-top:4px;">💡 ' + (s0.rol === 'suyo' ? 'tiene ' : 'es ' + esc(s0.rol) + ' en ') + esc(s0.id) + ' ' + '<a href="#" onclick="return verCred(\'' + s0.id + '\', event)" style="color:var(--ac);font-weight:700;white-space:nowrap;">🔎 ver</a>' + (s0.vencido > 0 ? ' · <span style="color:var(--bad)">vencido ' + m(s0.vencido) + '</span>' : (s0.prox ? ' · vence ' + esc(s0.prox.fecha) + ' ' + m(s0.prox.falta) : '')) + '</div>' : '') +
       '<div class="l2"><a href="#" onclick="abAbrir(' + k + ');return false;" style="color:var(--ac);font-weight:700;">＋ Abonar a otro</a><span>se le entrega <span class="' + (ent < -0.5 ? 'mal' : 'ent') + '">' + m(ent) + '</span></span></div></div>'; });
   var fuera = a && a.confiable ? (a.personas || []).filter(function(p){ return p.fila < 0; }) : [];
   if (fuera.length) h += '<p class="mini" style="margin-top:8px;"><b>No entraron al grupo nuevo:</b> ' + fuera.map(function(p){ return esc(corto(p.nombre)) + (p.total > 0 ? ' (debe ' + m(p.total) + ', queda pendiente en ' + esc(a.id) + ')' : ' (✓ ya pagó)'); }).join(' · ') + '</p>';
@@ -515,7 +522,7 @@ function abPintar(){ var f = DP.datos.filas[AB.k], d = AB.data;
   if (AB.res) h += AB.res.length ? AB.res.map(function(c){ var no = c.no || (c.id === DP.id ? 'es el que se dispersa' : (c.id === DP.sel ? 'ya está como crédito anterior' : '')); return '<div class="dato"' + (no ? ' style="opacity:.55"' : '') + '><span>' + (no ? esc(c.id) : '<a href="#" onclick="abElegir(\'' + c.id + '\');return false;"><b>' + esc(c.id) + '</b></a>') + ' · ' + esc(corto(c.titular)) + '</span><span>' + (no ? esc(no) : 'debe ' + m(c.total)) + '</span></div>'; }).join('') : '<div class="vacio">No encontré créditos con eso.</div>';
   if (AB.cred && !d) h += cargando('Cargando ' + AB.cred + '…');
   if (d) { var ya = dspAbCred(d.id, AB.k, AB.j);
-    h += '<div class="msg" style="margin-top:10px;"><b>' + esc(d.id) + ' · ' + esc(corto(d.nombre)) + '</b><div class="mini">' + esc(String(d.modalidad).toLowerCase()) + ' ' + m(d.monto) + ' · debe ' + m(d.total) + (ya ? ' · en esta dispersión ya le abonan ' + m(ya) : '') + '</div>' +
+    h += '<div class="msg" style="margin-top:10px;"><b>' + esc(d.id) + ' · ' + esc(corto(d.nombre)) + '</b> ' + '<a href="#" onclick="return verCred(\'' + d.id + '\', event)" style="color:var(--ac);font-weight:700;white-space:nowrap;">🔎 ver</a><div class="mini">' + esc(String(d.modalidad).toLowerCase()) + ' ' + m(d.monto) + ' · debe ' + m(d.total) + (ya ? ' · en esta dispersión ya le abonan ' + m(ya) : '') + '</div>' +
       '<table class="cu" style="margin-top:8px;"><tr><th>#</th><th>Vence</th><th class="r">Falta</th></tr>' + d.cuotas.slice(0, 6).map(function(q){ return '<tr><td>' + q.num + '</td><td>' + esc(q.fecha) + (q.vencida ? ' <span class="chip r" style="margin:0;">vencida</span>' : '') + '</td><td class="r">' + m(q.falta) + '</td></tr>'; }).join('') + '</table></div>' +
       '<label class="fld">Monto del abono (máximo ' + m(abMax()) + ')<input type="number" inputmode="decimal" id="abm" value="' + (AB.monto || '') + '"></label><p class="mini">Se abona de la cuota más vieja hacia adelante.</p>' +
       '<button class="btn bp" onclick="abGuardar()">Guardar abono</button>'; }
@@ -659,8 +666,9 @@ function vReportes(){ $('app').innerHTML = '<div class="w">' + cabeza('Reporte d
 function listaRep(){ var L = buscaCreds(D.creditos, RQ).sort(function(a, b){ return b.id.localeCompare(a.id); }); $('lr').innerHTML = L.length ? L.slice(0, 40).map(function(c){ return filaCred(c, c.vencido > 0 ? 'venc' : 'debe', 'repAbrir'); }).join('') : '<div class="vacio">No hay créditos con eso.</div>'; }
 function repAbrir(id){ abrirPanel('<div class="w"><button class="back" onclick="history.back()">← Volver</button>' + cargando('Armando el reporte de ' + id + '…') + '</div>');
   leer('appReporte', [id], function(d){ repPintar(d); }, function(e){ abrirPanel('<div class="w"><button class="back" onclick="history.back()">← Volver</button><div class="aviso r">' + esc(e.message) + '</div></div>'); }); }
-function repPintar(d){ var c = d.credito, t = d.totales, debe = (t.vencido || 0) + (t.porVencer || 0), V = (d.cuotas || []).filter(function(q){ return q.vencida; }).length;
-  var h = '<div class="w"><button class="back" onclick="history.back()">← Volver</button><div class="big">' + esc(c.id) + ' · ' + esc(corto(c.nombre)) + '</div>' +
+function repPintar(d){ abrirPanel('<div class="w"><button class="back" onclick="history.back()">← Volver</button>' + repCuerpo(d) + '</div>'); }
+function repCuerpo(d, corto0){ var c = d.credito, t = d.totales, debe = (t.vencido || 0) + (t.porVencer || 0), V = (d.cuotas || []).filter(function(q){ return q.vencida; }).length;
+  var h = '<div class="big">' + esc(c.id) + ' · ' + esc(corto(c.nombre)) + '</div>' +
     '<div><span class="chip">' + esc(c.modalidad) + ' ' + esc(String(c.tipo || '').toLowerCase()) + '</span><span class="chip g">' + esc(c.plazo) + ' ' + esc(String(c.frecuencia || '').toLowerCase()) + ' · ' + esc(c.tasa) + '</span>' + (V ? '<span class="chip r">' + V + ' vencida(s)</span>' : '<span class="chip">al corriente</span>') + '</div>' +
     '<div class="mini3"><div>Prestado<b>' + m(c.monto) + '</b>firmó ' + esc(c.firma) + '</div><div>Pagado<b>' + m(t.pagado) + '</b>cap. ' + m(t.capCob) + '</div><div>Debe<b>' + m(debe) + '</b>' + (t.vencido > 0 ? '<span style="color:var(--bad)">venc. ' + m(t.vencido) + '</span>' : 'por vencer') + '</div></div>';
   h += '<h2 class="sec">Estado de cuenta</h2><table class="cu"><tr><th>#</th><th>Vence</th><th class="r">Cuota</th><th class="r">Pagado</th><th class="r">Falta</th></tr>' + (d.cuotas || []).map(function(q){ return '<tr><td>' + esc(q.num) + '</td><td>' + esc(q.fecha) + (q.vencida ? ' <span class="chip r" style="margin:0;">vencida</span>' : (q.falta < 0.5 ? ' <span class="chip" style="margin:0;">✓</span>' : '')) + '</td><td class="r">' + m(q.total) + '</td><td class="r">' + m(q.pagado) + '</td><td class="r"><b>' + m(q.falta) + '</b></td></tr>'; }).join('') + '</table>';
@@ -675,8 +683,8 @@ function repPintar(d){ var c = d.credito, t = d.totales, debe = (t.vencido || 0)
   var txt = 'Estado de cuenta ' + c.id + ' · ' + tit(c.nombre) + '\nPrestado: ' + m(c.monto) + '\nPagado: ' + m(t.pagado) + '\nPor pagar: ' + m(debe) + (t.vencido > 0 ? '\nVencido: ' + m(t.vencido) : '') + '\n\n' +
     (d.cuotas || []).filter(function(q){ return q.falta > 0.5; }).slice(0, 6).map(function(q){ return '#' + q.num + ' ' + q.fecha + ': ' + m(q.falta) + (q.vencida ? ' (vencida)' : ''); }).join('\n') + '\n\nConcepto: PAGO PRESTAMO ' + c.id.replace(/\D/g, '').slice(-4);
   var l = wa(c.telefono, txt);
-  h += l ? '<a class="btn bw" target="_blank" href="' + l + '">Compartir estado de cuenta por WhatsApp</a>' : '';
-  abrirPanel(h + '</div>'); }
+  h += l && !corto0 ? '<a class="btn bw" target="_blank" href="' + l + '">Compartir estado de cuenta por WhatsApp</a>' : '';
+  return h; }
 
 // ---------- PROYECTADO vs COBRADO (la sección "Pagos" del dashboard, sin gráficas) ----------
 var PY = null;
@@ -755,7 +763,7 @@ function vProy(){
 function pyCred(id){ if (credDe(id)) ficha(id); else repAbrir(id); }
 
 // ---------- inicio ----------
-document.addEventListener('click', function(e){ var d = $('drw'); if (d && e.target === d) menu(false); var mo = $('modal'); if (mo && e.target === mo) cerrarModal(); });
+document.addEventListener('click', function(e){ var d = $('drw'); if (d && e.target === d) menu(false); var mo = $('modal'); if (mo && e.target === mo) cerrarModal(); if (e.target === $('modal2')) cerrarCred(); });
 TOKEN = leerLocal('ic_app_token');
 if (TOKEN) cargar(); else pantallaLogin();
 if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(function(){});
