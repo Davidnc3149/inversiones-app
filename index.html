@@ -561,7 +561,9 @@ function ncPintar(){ var r = NC.r, s = r.resumen, bloq = r.alertas.filter(functi
   $('ncR').innerHTML = h; }
 function ncRegistrar(){ var r = NC.r; if ($('ncT').value !== r._texto) { alert('Cambiaste el bloque: vuelve a tocar Revisar.'); return; }
   if (!confirm('¿Registrar el crédito de ' + tit(r.resumen.acreditado) + ' por ' + m(r.resumen.monto) + '? Queda por dispersar.')) return;
-  var o = {}; if (NC.bonif !== null) o.bonificacion = NC.bonif; if (r.cuota0) { o.cuota0 = !!NC.c0; o.tasaPactada = num(NC.tasa0); }
+  var o = {}; if (NC.bonif !== null) o.bonificacion = NC.bonif; if (r.cuota0) { o.cuota0 = !!NC.c0; o.tasaPactada = num(NC.tasa0);
+    var e0 = Math.round(num(r.resumen.monto) * num(NC.tasa0) / 100 / 30 * r.cuota0.dias);   // 14/11/2026: si es poca, se pregunta
+    if (o.cuota0 && e0 > 0 && e0 < (r.cuota0.minima || 100)) o.cuota0 = confirm('La cuota 0 sería de solo ' + m(e0) + ' por ' + r.cuota0.dias + ' día' + (r.cuota0.dias === 1 ? '' : 's') + '.\n\n¿La incluimos?\nAceptar = sí, se cobra · Cancelar = no se cobra'); }
   var b = $('ncBtn'); b.disabled = true; b.textContent = 'Registrando… no cierres la app';
   escribir('appNcRegistrar', [r._texto, r.clienteExistente && NC.ficha ? r.clienteExistente.id : '', o], function(x){ var id = x.idCred || ''; NC = { texto: '', r: null, bonif: null, ficha: true, c0: null, tasa0: '' }; DL = null;
       abrirPanel('<div class="w"><div class="big">✅ ' + esc(id || 'Crédito') + ' registrado</div><div class="aviso ok">Cliente ' + esc(x.idCliente || '') + (x.fichaReutilizada ? ' (ficha existente)' : '') + ' · pago regular ' + m(x.pagoRegular) + ' · total ' + m(x.totalPagar) + '<br>Queda POR DISPERSAR.' + (x.repetido ? '<br>(ya se había registrado: no se duplicó)' : '') + '</div>' +
@@ -602,7 +604,15 @@ function mcPintarPrev(){ var r = MC.prev, el = $('mcPv'); if (!el || !r) return;
   el.innerHTML = '<div class="msg" style="margin-top:10px;"><div class="dato"><span>Cuota</span><span>' + m(r.cuota) + '</span></div><div class="dato"><span>Total a pagar</span><span>' + m(r.total) + ' (antes ' + m(MC.d.totalActual) + ')</span></div>' +
     '<table class="cu" style="margin-top:8px;"><tr><th>#</th><th>Fecha</th><th class="r">Pago</th><th class="r">Saldo</th></tr>' + r.tabla.slice(0, 6).map(function(t){ return '<tr><td>' + t.num + '</td><td>' + esc(t.fecha) + '</td><td class="r">' + m(t.pago) + '</td><td class="r">' + m(t.saldo) + '</td></tr>'; }).join('') + (r.tabla.length > 6 ? '<tr><td colspan="4" class="mini">… ' + (r.tabla.length - 6) + ' más</td></tr>' : '') + '</table></div>' +
     '<button class="btn bp" id="mcB2" onclick="mcGuardar(true)">Aplicar condiciones y regenerar la tabla</button>'; }
+// 14/11/2026: días y monto aproximado de la cuota 0 con las fechas nuevas (igual que el sistema: quincena 15/30 o mes anterior)
+function c0Dias(f){ if (!f.firma || !f.primerPago) return 0; var fp = new Date(f.primerPago + 'T12:00:00'), ant;
+  if (f.frecuencia === 'MENSUAL') { var y = fp.getFullYear(), mo = fp.getMonth() - 1; if (mo < 0) { mo = 11; y--; } ant = new Date(y, mo, Math.min(fp.getDate(), new Date(y, mo + 1, 0).getDate()), 12); }
+  else if (fp.getDate() > 15) ant = new Date(fp.getFullYear(), fp.getMonth(), 15, 12);
+  else { var y2 = fp.getFullYear(), m2 = fp.getMonth() - 1; if (m2 < 0) { m2 = 11; y2--; } ant = new Date(y2, m2, Math.min(30, new Date(y2, m2 + 1, 0).getDate()), 12); }
+  return Math.round((ant - new Date(f.firma + 'T12:00:00')) / 864e5); }
 function mcGuardar(tabla){ var p = mcDatos(); p.cambiaTabla = !!tabla; p.cambiaSimples = true;
+  if (tabla) { var dc = c0Dias(MC.f), tc = num(MC.f.tasaContrato) || (MC.f.tipo === 'SIMPLE' ? num(MC.f.tasa) : 0), ec = (tc > 0 && dc > 0) ? Math.round(num(MC.f.monto) * tc / 100 / 30 * dc) : 0;
+    if (dc > 0 && ec > 0 && ec < 100) p.cuota0Incluir = confirm('Con estas fechas lleva CUOTA 0 de interés proporcional de solo ' + m(ec) + ' (' + dc + ' día' + (dc === 1 ? '' : 's') + ').\n\n¿La incluimos?\nAceptar = sí, se cobra · Cancelar = no se cobra'); }
   if (!confirm(tabla ? '¿Cambiar las condiciones de ' + p.id + ' y regenerar su tabla' + (p.contrato === 'no' ? '' : ' y contrato') + '?' : '¿Guardar los datos generales de ' + p.id + '?')) return;
   var b = $(tabla ? 'mcB2' : 'mcB1'); b.disabled = true; b.textContent = 'Guardando… no cierres la app';
   escribir('appMcAplicar', [p], function(r){ abrirPanel('<div class="w"><div class="big">✅ ' + esc(p.id) + ' actualizado</div><div class="aviso ok" style="white-space:pre-wrap;">' + esc(r.mensaje || 'Listo.') + '</div><button class="btn bp" onclick="cerrarPanel();cargar()">Listo</button></div>'); },
