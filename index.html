@@ -430,7 +430,8 @@ var DP = null;
 function dspX(){ return DL && (DL.registrados || []).filter(function(x){ return x.id === DP.id; })[0]; }
 function dspAbrir(id){ if (!DL) { abrirPanel('<div class="w">' + cargando('Abriendo ' + id + '…') + '</div>'); leer('appDspLista', [], function(r){ DL = r; if (!(DL.registrados || []).some(function(x){ return x.id === id; })) { abrirPanel('<div class="w"><button class="back" onclick="history.back()">← Volver</button><div class="aviso r">' + esc(id) + ' ya no está por dispersar.</div></div>'); return; } dspAbrir(id); }); return; }
   var x = (DL.registrados || []).filter(function(z){ return z.id === id; })[0]; if (!x) { alert(id + ' ya no está por dispersar.'); return; }
-  DP = { id: id, fecha: hoyIso(), datos: null, sel: '', incl: {}, manual: '', abonos: {}, deudas: {}, ef: x.ef || '', bb: x.bbva || (x.ef || x.nu ? '' : x.monto), nu: x.nu || '', intS: false, iEf: '', iBb: '', iNu: '', ref: '', nota: '', op: nuevoOp() };
+  var cons = !!(x.consol && x.ren > 0);   // 14/11/2026: viene de Consolidar: el saldo de los créditos viejos ya está descontado
+  DP = { id: id, cons: cons, ren: cons ? x.ren : 0, fecha: hoyIso(), datos: null, sel: '', incl: {}, manual: '', abonos: {}, deudas: {}, ef: x.ef || '', bb: x.bbva || (x.ef || x.nu ? '' : x.monto - (cons ? x.ren : 0)), nu: x.nu || '', intS: false, iEf: '', iBb: '', iNu: '', ref: '', nota: '', op: nuevoOp() };
   dspPintar(); dspCargar(false); }
 function dspCargar(conservar){ var d0 = DP, f0 = DP.fecha; d0.cargando = true;
   leer('appDspTabla', [d0.id, f0], function(d){ if (DP !== d0 || d0.fecha !== f0) return; d0.cargando = false; var selAnt = d0.sel, inc = d0.incl; d0.datos = d;
@@ -441,10 +442,10 @@ function dspAnt(){ return DP && DP.datos ? (DP.datos.anteriores || []).filter(fu
 function dspElegirAnt(idA, sinPintar){ DP.sel = idA || ''; DP.incl = {}; DP.manual = ''; var a = dspAnt();
   if (a && a.confiable) (a.personas || []).forEach(function(p){ if (p.fila >= 0 && p.total > 0) DP.incl[p.id] = true; });
   if (!sinPintar) { dspTotales(); dspPintar(); } }
-function dspDescFila(k){ var a = dspAnt(); if (!a || !a.confiable) return 0; return (a.personas || []).filter(function(p){ return p.fila === k && DP.incl[p.id]; }).reduce(function(s, p){ return s + p.total; }, 0); }
+function dspDescFila(k){ if (DP.cons) return k === 0 ? DP.ren : 0; var a = dspAnt(); if (!a || !a.confiable) return 0; return (a.personas || []).filter(function(p){ return p.fila === k && DP.incl[p.id]; }).reduce(function(s, p){ return s + p.total; }, 0); }
 function dspDebeFila(k){ var a = dspAnt(); if (!a || !a.confiable) return null; var ps = (a.personas || []).filter(function(p){ return p.fila === k; }); return ps.length ? ps : null; }
 function dspAbFila(k){ return (DP.abonos[k] || []).reduce(function(s, a){ return s + a.monto; }, 0); }
-function dspDescTotal(){ var a = dspAnt(); if (!a) return 0; if (!a.confiable) return num(DP.manual); return Math.round((a.personas || []).filter(function(p){ return p.fila >= 0 && DP.incl[p.id]; }).reduce(function(s, p){ return s + p.total; }, 0) * 100) / 100; }
+function dspDescTotal(){ if (DP.cons) return DP.ren; var a = dspAnt(); if (!a) return 0; if (!a.confiable) return num(DP.manual); return Math.round((a.personas || []).filter(function(p){ return p.fila >= 0 && DP.incl[p.id]; }).reduce(function(s, p){ return s + p.total; }, 0) * 100) / 100; }
 function dspAbTotal(){ var s = 0; Object.keys(DP.abonos).forEach(function(k){ s += dspAbFila(+k); }); return Math.round(s * 100) / 100; }
 function dspEntFila(k){ var f = DP.datos.filas[k]; return Math.round((f.monto - dspDescFila(k) - dspAbFila(k)) * 100) / 100; }
 function dspAbCred(c, salvoK, salvoJ){ var s = 0; Object.keys(DP.abonos).forEach(function(k){ (DP.abonos[k] || []).forEach(function(ab, j){ if (ab.cred === c && !(+k === salvoK && j === salvoJ)) s += ab.monto; }); }); return Math.round(s * 100) / 100; }
@@ -460,8 +461,10 @@ function dspPintar(){ var d = DP, x = dspX(); if (!d || !x) return;
   if (!d.datos) { abrirPanel(h + cargando('Cargando personas, crédito anterior y otros créditos…') + '</div>'); return; }
   var D2 = d.datos, a = dspAnt();
   h += (D2.avisos || []).map(function(t){ return '<div class="aviso a" style="margin-top:8px;">⚠️ ' + esc(t) + '</div>'; }).join('');
-  h += '<h2 class="sec">1 · Crédito anterior</h2>';
-  if (D2.anteriores.length) {
+  if (d.cons) h += '<h2 class="sec">1 · Consolidación de ' + esc(dspX().consol) + '</h2><div class="aviso ok">' + m(d.ren) + ' son el saldo de los créditos viejos: <b>no salen de caja</b>. Solo se entrega el capital adicional: <b>' + m(x.monto - d.ren) + '</b>.</div>';
+  else h += '<h2 class="sec">1 · Crédito anterior</h2>';
+  if (d.cons) {}
+  else if (D2.anteriores.length) {
     h += D2.anteriores.map(function(s){ return '<label class="op"><input type="radio" name="dAnt"' + (s.id === d.sel ? ' checked' : '') + ' onchange="dspElegirAnt(\'' + s.id + '\')"><span><b>' + esc(s.id) + '</b> · ' + esc(corto(s.nombre)) + ' ' + '<a href="#" onclick="return verCred(\'' + s.id + '\', event)" style="color:var(--ac);font-weight:700;white-space:nowrap;">🔎 ver</a>' + '<small>' + (s.grupo ? '👥 grupo anterior · siguen ' + (s.siguen || []).length + ' de ' + ((s.siguen || []).length + (s.noEntraron || []).length) : esc(s.motivo || '')) + ' · debe ' + m(s.total) + '</small></span></label>'; }).join('') +
       '<label class="op"><input type="radio" name="dAnt"' + (!d.sel ? ' checked' : '') + ' onchange="dspElegirAnt(\'\')"><span>No descontar<small>se entrega completo</small></span></label>';
     if (a && !a.confiable) h += '<div class="aviso a">No se puede saber cuánto debe cada quien en ' + esc(a.id) + ' (' + esc(a.motivoNoConfiable || 'sin desglose') + '). Total a descontar (de ' + m(a.total) + '):<input type="number" inputmode="decimal" value="' + esc(d.manual) + '" oninput="DP.manual=this.value;dspTotales();dspPie()" style="display:block;width:100%;margin-top:6px;border:1px solid var(--ln);border-radius:10px;padding:8px;background:var(--sf);"></div>';
@@ -476,7 +479,7 @@ function dspPintar(){ var d = DP, x = dspX(); if (!d || !x) return;
     h += '<div class="pers' + (ent < -0.5 ? ' mal' : '') + '"><div class="l1"><b>' + esc(corto(f.nombre)) + (f.ancla && D2.grupal ? ' <span class="chip" style="margin:0;">ancla</span>' : '') + '</b><span class="mini">le toca ' + m(f.monto) + (D2.grupal ? ' · ' + m(f.pago) + '/sem' : '') + '</span></div>' +
       (debe ? '<div class="l2">' + debe + '</div>' : '') + (abs ? '<div style="margin-top:6px;">' + abs + '</div>' : '') +
       (s0 ? '<div class="mini" style="margin-top:4px;">💡 ' + (s0.rol === 'suyo' ? 'tiene ' : 'es ' + esc(s0.rol) + ' en ') + esc(s0.id) + ' ' + '<a href="#" onclick="return verCred(\'' + s0.id + '\', event)" style="color:var(--ac);font-weight:700;white-space:nowrap;">🔎 ver</a>' + (s0.vencido > 0 ? ' · <span style="color:var(--bad)">vencido ' + m(s0.vencido) + '</span>' : (s0.prox ? ' · vence ' + esc(s0.prox.fecha) + ' ' + m(s0.prox.falta) : '')) + '</div>' : '') +
-      '<div class="l2"><a href="#" onclick="abAbrir(' + k + ');return false;" style="color:var(--ac);font-weight:700;">＋ Abonar a otro</a><span>se le entrega <span class="' + (ent < -0.5 ? 'mal' : 'ent') + '">' + m(ent) + '</span></span></div></div>'; });
+      '<div class="l2">' + (d.cons ? '<span class="mini">' + m(d.ren) + ' van a la consolidación</span>' : '<a href="#" onclick="abAbrir(' + k + ');return false;" style="color:var(--ac);font-weight:700;">＋ Abonar a otro</a>') + '<span>se le entrega <span class="' + (ent < -0.5 ? 'mal' : 'ent') + '">' + m(ent) + '</span></span></div></div>'; });
   var fuera = a && a.confiable ? (a.personas || []).filter(function(p){ return p.fila < 0; }) : [];
   if (fuera.length) h += '<p class="mini" style="margin-top:8px;"><b>No entraron al grupo nuevo:</b> ' + fuera.map(function(p){ return esc(corto(p.nombre)) + (p.total > 0 ? ' (debe ' + m(p.total) + ', queda pendiente en ' + esc(a.id) + ')' : ' (✓ ya pagó)'); }).join(' · ') + '</p>';
   h += '<h2 class="sec">3 · ¿De qué cuenta sale?</h2><div class="grid2">' + [['ef','Efectivo'],['bb','BBVA'],['nu','NU']].map(function(c){ return '<label class="fld">' + c[1] + '<input type="number" inputmode="decimal" id="d_' + c[0] + '" value="' + esc(DP[c[0]]) + '" oninput="DP.' + c[0] + '=this.value;dspPie()"></label>'; }).join('') + '</div>' +
@@ -490,7 +493,8 @@ function dspIncl(k, on){ (dspDebeFila(k) || []).forEach(function(p){ if (on) DP.
 function dspPie(){ var el = $('dPie'), x = dspX(); if (!el || !x || !DP.datos) return; var a = dspAnt(), desc = dspDescTotal(), ab = dspAbTotal(), sale = num(DP.ef) + num(DP.bb) + num(DP.nu), dif = Math.round((x.monto - desc - ab - sale) * 100) / 100, L = [];
   ['ef','bb','nu'].forEach(function(k){ var i = $('d_' + k); if (i && document.activeElement !== i) i.value = DP[k]; });
   L.push('<b>Sale del banco/caja: ' + m(sale) + '</b>' + (Math.abs(dif) > 1 ? ' · <span class="mal">' + (dif > 0 ? 'faltan ' + m(dif) : 'sobran ' + m(-dif)) + ' para cuadrar ' + m(x.monto) + '</span>' : ' ✓ cuadra'));
-  if (a && desc > 0) L.push(Math.abs(desc - a.total) <= 2 ? esc(a.id) + ' queda <b>LIQUIDADO por renovación</b> (' + m(desc) + ')' : esc(a.id) + ': se descuentan ' + m(desc) + '; le quedan ' + m(a.total - desc));
+  if (DP.cons) L.push(m(desc) + ' son el saldo de ' + esc(x.consol) + ' (consolidación): no salen de caja');
+  else if (a && desc > 0) L.push(Math.abs(desc - a.total) <= 2 ? esc(a.id) + ' queda <b>LIQUIDADO por renovación</b> (' + m(desc) + ')' : esc(a.id) + ': se descuentan ' + m(desc) + '; le quedan ' + m(a.total - desc));
   DP.datos.filas.forEach(function(f, k){ (DP.abonos[k] || []).forEach(function(q){ L.push(esc(q.cred) + ' recibe <b>' + m(q.monto) + '</b> de lo de ' + esc(primer(f.nombre))); }); });
   el.innerHTML = L.join('<br>'); }
 function dspGuardar(){ var d = DP, x = dspX(), a = dspAnt(), desc = dspDescTotal(), ab = dspAbTotal(), s = num(d.ef) + num(d.bb) + num(d.nu) + desc + ab;
@@ -504,8 +508,8 @@ function dspGuardar(){ var d = DP, x = dspX(), a = dspAnt(), desc = dspDescTotal
   var porP = (a && a.grupo && a.confiable && desc > 0) ? Object.keys(d.incl) : undefined;
   if (!confirm('¿Confirmar que ya se entregó el dinero de ' + d.id + '?\n\nSale del banco/caja: ' + m(num(d.ef) + num(d.bb) + num(d.nu)) + '\n' + $('dPie').innerText.split('\n').slice(1).join('\n'))) return;
   var b = $('dBtn'); b.disabled = true; b.textContent = 'Dispersando… no cierres la app';
-  escribir('appDspDispersar', [d.id, { fecha: d.fecha, efectivo: d.ef, bbva: d.bb, nu: d.nu, renovacion: desc || '', anterior: a && desc > 0 ? a.id : '', porPersona: porP, abonos: abonos,
-      esperado: { deudas: d.deudas, anterior: a && desc > 0 ? a.total : 0 }, desglose: desg, referencia: d.ref, nota: d.nota, intEfectivo: d.intS ? d.iEf : '', intBbva: d.intS ? d.iBb : '', intNu: d.intS ? d.iNu : '' }],
+  escribir('appDspDispersar', [d.id, { fecha: d.fecha, efectivo: d.ef, bbva: d.bb, nu: d.nu, renovacion: desc || '', anterior: d.cons ? 'CONSOLIDACION' : (a && desc > 0 ? a.id : ''), porPersona: d.cons ? undefined : porP, abonos: d.cons ? [] : abonos,
+      esperado: { deudas: d.cons ? {} : d.deudas, anterior: !d.cons && a && desc > 0 ? a.total : 0 }, desglose: d.cons ? [] : desg, referencia: d.ref, nota: d.nota, intEfectivo: d.intS ? d.iEf : '', intBbva: d.intS ? d.iBb : '', intNu: d.intS ? d.iNu : '' }],
     function(r){ DP = null; DL = null; R = null; guardarLocal('ic_app_res', ''); abrirPanel('<div class="w"><div class="big">✅ ' + esc(d.id) + ' dispersado</div>' + ((r.avisos || []).length ? '<div class="aviso a">' + r.avisos.map(esc).join('<br>') + '</div>' : '') + (r.repetido ? '<div class="aviso ok">(ya se había dispersado: no se repitió)</div>' : '') + '<button class="btn bp" onclick="cerrarPanel();cargar()">Listo</button></div>'); },
     function(e){ b.disabled = false; b.textContent = '💸 Confirmar dispersión'; if (/^CAMBIO\|/.test(e.message)) { alert(e.message.replace(/^CAMBIO\|/, '') + '\n\nVuelvo a cargar la tabla.'); DP.datos = null; DP.op = nuevoOp(); dspCargar(true); dspPintar(); return; } alert(e.message); }, d.op); }
 function dspCancelar(){ var mot = prompt('¿Por qué se cancela ' + DP.id + '? (el crédito queda CANCELADO; se puede reactivar desde la computadora)'); if (!mot || mot.trim().length < 4) return;
