@@ -21,7 +21,14 @@
   .marca{font-family:Fraunces,serif;font-size:21px;color:var(--ac);} .fecha{font-size:12.5px;color:var(--mu);}
   .yo{font-size:12px;font-weight:700;background:var(--acs);color:var(--ac2);border-radius:99px;padding:3px 10px;border:0;}
   .kpis{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
-  .k{background:var(--sf);border:1px solid var(--ln);border-radius:14px;padding:10px 12px;} .kpis>.k{min-width:0;} @media (max-width:380px){ .kpis>.k{padding:9px 9px;} .kpis>.k .dato{font-size:12.5px;gap:4px;} } .k .dato span{white-space:nowrap;} .k .dato span:last-child{font-variant-numeric:tabular-nums;} .k .t{font-size:10.5px;color:var(--mu);text-transform:uppercase;letter-spacing:.5px;font-weight:700;}
+  .k{background:var(--sf);border:1px solid var(--ln);border-radius:14px;padding:10px 12px;}
+  .cbz{display:flex;justify-content:space-between;font-size:12.5px;color:var(--mu);margin:2px 2px 4px;font-weight:600;}
+  .cb{background:var(--sf);border:1px solid var(--ln);border-radius:14px;padding:10px 12px;margin-bottom:8px;} .cb.at{border-left:4px solid var(--bad);} .cb.ok{opacity:.62;}
+  .cb1{display:flex;gap:8px;align-items:flex-start;} .cb1 .tx{flex:1;min-width:0;} .cb1 .nm{font-weight:700;font-size:14.5px;} .cb1 .dt{font-size:12px;color:var(--mu);margin-top:1px;} .cb1 .mt{font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap;}
+  .cbv{border:0;background:none;color:var(--ac);font-weight:700;font-size:12.5px;padding:6px 0 4px;cursor:pointer;}
+  .cbb{display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:6px;} .cbb a,.cbb button,.cbb span{display:flex;align-items:center;justify-content:center;border-radius:10px;padding:9px 4px;font-size:12.5px;font-weight:700;text-decoration:none;border:1px solid var(--ln);background:var(--bg);color:var(--ink);cursor:pointer;white-space:nowrap;}
+  .cbb a.w1{background:#1f9d55;border-color:#1f9d55;color:#fff;} .cbb .w0{color:var(--mu);font-weight:600;cursor:default;}
+  .toast{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:99px;font-size:13px;font-weight:600;opacity:0;transition:opacity .2s;pointer-events:none;z-index:60;} .toast.on{opacity:.92;} .kpis>.k{min-width:0;} @media (max-width:380px){ .kpis>.k{padding:9px 9px;} .kpis>.k .dato{font-size:12.5px;gap:4px;} } .k .dato span{white-space:nowrap;} .k .dato span:last-child{font-variant-numeric:tabular-nums;} .k .t{font-size:10.5px;color:var(--mu);text-transform:uppercase;letter-spacing:.5px;font-weight:700;}
   .k .v{font-family:Fraunces,serif;font-size:21px;margin-top:2px;font-variant-numeric:tabular-nums;} .k .s{font-size:11.5px;color:var(--mu);}
   .k.p{background:var(--ac);border-color:var(--ac);color:#fff;} .k.p .t,.k.p .s{color:#d7efe6;} .k.r .v{color:var(--bad);}
   h2.sec{font-family:Fraunces,serif;font-size:17px;margin:18px 0 8px;display:flex;justify-content:space-between;align-items:center;gap:8px;}
@@ -91,7 +98,7 @@
 </style></head><body>
 <div id="app"></div>
 <nav id="nav" style="display:none;"></nav>
-<div id="panel" class="panel" style="display:none;"></div>
+<div class="toast" id="toast"></div><div id="panel" class="panel" style="display:none;"></div>
 <div id="drw" class="drw"></div>
 <div id="modal" class="modal"></div>
 <div id="modal2" class="modal" style="z-index:60;"></div>
@@ -327,14 +334,26 @@ function vCobrar(){ var M = D.mensajes || {}, todos = SEGM === 'rec' ? (M.record
     '<div class="seg3">' + [['G','Grupales'],['C','Ind. compuesto'],['S','Ind. simple']].map(function(t){ var n = cuenta(M.recordatorio || [], t[0]) + cuenta(M.atrasos || [], t[0]); return '<button class="' + (SEGT === t[0] ? 'on' : '') + '" onclick="SEGT=\'' + t[0] + '\';vCobrar()">' + t[1] + ' ' + n + '</button>'; }).join('') + '</div>' +
     '<div class="seg"><button class="' + (SEGM === 'rec' ? 'on' : '') + '" onclick="SEGM=\'rec\';vCobrar()">Recordatorio hoy y mañana (' + cuenta(M.recordatorio || [], SEGT) + ')</button><button class="' + (SEGM === 'atr' ? 'on' : '') + '" onclick="SEGM=\'atr\';vCobrar()">Atrasos (' + cuenta(M.atrasos || [], SEGT) + ')</button></div>' +
     ((M.errorRec || M.errorAtr) ? '<div class="aviso a">No se pudieron armar algunos mensajes: ' + esc(M.errorRec || M.errorAtr) + '</div>' : '');
-  h += L.length ? '<p class="mini">Total: ' + m(L.reduce(function(s, x){ return s + x.falta; }, 0)) + '</p>' + L.map(function(x){ var k = todos.indexOf(x), l = wa(x.tel, x.mensaje), c = credDe(x.idCred);
-    return '<div class="msg"><div style="display:flex;justify-content:space-between;gap:8px;"><div><b>' + esc(corto(x.nombre)) + '</b><div class="mini">' + esc(x.idCred) + (SEGM === 'atr' ? ' · ' + x.dias + ' días' + (x.detalle ? ' · ' + esc(x.detalle.split(':')[0]) : '') : ' · vence ' + esc(x.fecha.slice(0, 5))) + (x.enviado ? ' · <span style="color:var(--ac)">ya enviado</span>' : '') + '</div></div><div class="mt">' + m(x.falta) + '</div></div>' +
-      '<div class="bur">' + esc(x.mensaje) + '</div>' + (l ? '<a class="btn bw" style="margin-top:0;" target="_blank" href="' + l + '" onclick="marcarEnviado(' + k + ')">Mandar por WhatsApp</a>' : '<div class="aviso a" style="margin:0;">Sin teléfono en su ficha</div>') +
-      (adm() && c && !c.porDispersar ? '<button class="btn bs" onclick="pagoAbrir(\'' + x.idCred + '\')">Ya pagó → registrar</button>' : '') + '</div>'; }).join('')
+  // 15/11/2026: lista compacta. El mensaje se despliega con "Ver mensaje"; botones WhatsApp · Copiar · Ya pagó. Los ya enviados bajan al final.
+  var env = L.filter(function(x){ return x.enviado; }).length, Lo = L.filter(function(x){ return !x.enviado; }).concat(L.filter(function(x){ return x.enviado; }));
+  h += L.length ? '<div class="cbz"><span>Total ' + m(L.reduce(function(s, x){ return s + x.falta; }, 0)) + '</span><span>Enviados ' + env + ' de ' + L.length + '</span></div><div class="bar" style="margin:0 0 10px;"><i style="width:' + Math.round(env / L.length * 100) + '%"></i></div>' +
+    Lo.map(function(x){ var k = todos.indexOf(x), l = wa(x.tel, x.mensaje), c = credDe(x.idCred), ky = SEGM + '|' + x.idVenc, ab = !!CB_AB[ky];
+    return '<div class="cb' + (x.enviado ? ' ok' : '') + (SEGM === 'atr' ? ' at' : '') + '"><div class="cb1"><div class="tx"><div class="nm">' + (x.enviado ? '✓ ' : '') + esc(corto(x.nombre)) + '</div><div class="dt">' + esc(x.idCred) +
+        (SEGM === 'atr' ? ' · <b style="color:var(--bad)">' + x.dias + ' día' + (x.dias === 1 ? '' : 's') + '</b>' + (x.detalle ? ' · ' + esc(x.detalle.split(':')[0]) : '') : ' · vence ' + esc(x.fecha.slice(0, 5))) +
+        (x.enviado ? ' · <span style="color:var(--ac)">enviado ' + esc(String(x.enviado)) + '</span>' : '') + '</div></div><div class="mt">' + m(x.falta) + '</div></div>' +
+      '<button class="cbv" onclick="cbVer(\'' + ky + '\')">' + (ab ? 'Ocultar mensaje ▴' : 'Ver mensaje ▾') + '</button>' + (ab ? '<div class="bur" style="margin:4px 0 8px;max-height:none;overflow:visible;white-space:pre-wrap;">' + esc(x.mensaje) + '</div>' : '') +
+      '<div class="cbb">' + (l ? '<a class="w1" target="_blank" href="' + l + '" onclick="marcarEnviado(' + k + ')">💬 WhatsApp</a>' : '<span class="w0">sin teléfono</span>') +
+        '<button onclick="cbCopiar(' + k + ')">📋 Copiar</button>' +
+        (adm() && c && !c.porDispersar ? '<button onclick="pagoAbrir(\'' + x.idCred + '\')">💵 Ya pagó</button>' : '<button onclick="ficha(\'' + x.idCred + '\')">👁 Ver</button>') + '</div></div>'; }).join('')
     : '<div class="vacio">' + (SEGM === 'rec' ? 'No hay pagos de este tipo que venzan hoy o mañana.' : 'No hay atrasos de este tipo. 🎉') + '</div>';
-  $('app').innerHTML = h + '<p class="mini">Son los mismos mensajes de "Mensajes del día". Al tocar WhatsApp se abre el chat con el texto listo.</p></div>'; }
+  $('app').innerHTML = h + '<p class="mini">Son los mismos mensajes de "Mensajes del día". WhatsApp abre el chat con el texto listo y lo marca como enviado; Copiar es para mandarlo por otro lado.</p></div>'; }
+var CB_AB = {};
+function cbVer(ky){ CB_AB[ky] = !CB_AB[ky]; var y = scrollY; vCobrar(); scrollTo(0, y); }
+function cbCopiar(k){ var L = SEGM === 'rec' ? D.mensajes.recordatorio : D.mensajes.atrasos, x = L[k]; if (!x) return;
+  var ok = function(){ var t = $('toast'); if (t) { t.textContent = 'Mensaje copiado'; t.classList.add('on'); setTimeout(function(){ t.classList.remove('on'); }, 1600); } else alert('Mensaje copiado.'); };
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(x.mensaje).then(ok, function(){ prompt('Copia el mensaje:', x.mensaje); }); else prompt('Copia el mensaje:', x.mensaje); }
 function marcarEnviado(k){ var L = SEGM === 'rec' ? D.mensajes.recordatorio : D.mensajes.atrasos, x = L[k]; if (!x || x.enviado) return;
-  x.enviado = 'ahora'; setTimeout(function(){ if (TAB === 'cobrar') vCobrar(); }, 400);
+  x.enviado = 'ahora'; setTimeout(function(){ if (TAB === 'cobrar') { var y = scrollY; vCobrar(); scrollTo(0, y); } }, 400);
   api({ accion: 'api', token: TOKEN, fn: 'appEnviado', args: [{ idVenc: x.idVenc, idCred: x.idCred, nombre: x.nombre, tel: x.tel, falta: x.falta, modo: SEGM === 'rec' ? 'RECORDATORIO' : 'ATRASOS' }] },
     function(r){ x.enviado = r.hora; guardarLocal('ic_app_datos', JSON.stringify(D)); if (TAB === 'cobrar') vCobrar(); }, function(){ x.enviado = ''; if (TAB === 'cobrar') vCobrar(); }); }
 
