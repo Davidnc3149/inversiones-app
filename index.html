@@ -377,7 +377,10 @@ function pagoAbrir(id){ var c = credDe(id); if (!c) return;
 function pagoCargarCuota(){ var p = PG; p.info = null; p.error = ''; pagoPintar();
   leer('appCuota', [p.idVenc], function(r){ if (PG !== p) return; p.info = r; p.monto = r.falta; p.ap = {};
       if (r.grupal) { var debe = {}; (r.quien || []).forEach(function(x){ debe[String(x.id).toUpperCase()] = x.monto; });
-        r.integrantes.forEach(function(i){ var k = String(i.id).toUpperCase(), d = (r.quien && r.quien.length) ? (debe[k] || 0) : i.pago; p.ap[k] = { debe: d, monto: d, si: d > 0, pago: Number(i.pago) || 0 }; }); }
+        r.integrantes.forEach(function(i){ var k = String(i.id).toUpperCase(), d = (r.quien && r.quien.length) ? (debe[k] || 0) : i.pago; p.ap[k] = { debe: d, monto: d, si: d > 0, pago: Number(i.pago) || 0 }; });
+        // 15/11/2026: si lo que deben los integrantes no llega a lo que falta (el peso de redondeo de la última cuota), el resto va con la ancla
+        var sumD = Object.keys(p.ap).reduce(function(s, k){ return s + p.ap[k].debe; }, 0), resto = Math.round((Number(r.falta) - sumD) * 100) / 100;
+        if (resto > 0.5) { var an = r.integrantes.filter(function(z){ return z.ancla; })[0] || r.integrantes[0]; if (an) { var x = p.ap[String(an.id).toUpperCase()]; x.debe = Math.round((x.debe + resto) * 100) / 100; x.monto = x.debe; x.si = true; } } }
       pagoPintar(); }, function(e){ if (PG !== p) return; p.error = e.message; pagoPintar(); }); }
 function pagoSuma(){ var s = 0; Object.keys(PG.ap).forEach(function(k){ var a = PG.ap[k]; if (a.si) s += Number(a.monto) || 0; }); return Math.round(s * 100) / 100; }
 function pagoPintar(){ var p = PG, c = p.c, i = p.info;
@@ -391,9 +394,10 @@ function pagoPintar(){ var p = PG, c = p.c, i = p.info;
     if (i.grupal) {
       h += '<h2 class="sec">¿Quién pagó?<span class="n" id="pSuma">' + m(pagoSuma()) + '</span></h2>';
       h += i.integrantes.map(function(x){ var k = String(x.id).toUpperCase(), a = p.ap[k] || { debe: 0, monto: 0, si: false };
+        if (!(a.debe > 0)) return '<div class="f" style="cursor:default;opacity:.55;"><span style="width:22px;text-align:center;flex:none;color:var(--ac);font-weight:700;">✓</span><div class="tx"><div class="nm">' + esc(corto(x.nombre)) + (x.ancla ? ' <span class="chip" style="margin:0;">ancla</span>' : '') + '</div><div class="dt">ya pagó su parte de esta cuota</div></div></div>';   // 15/11/2026: no se puede marcar; si adelanta, va en la cuota siguiente
         return '<div class="f" style="cursor:default;"><input type="checkbox" id="pc_' + k + '" style="width:22px;height:22px;accent-color:var(--ac);flex:none;"' + (a.si ? ' checked' : '') + ' onchange="pagoMarca(\'' + k + '\', this.checked)"><div class="tx" style="cursor:pointer;" onclick="pagoMarca(\'' + k + '\', !PG.ap[\'' + k + '\'].si)"><div class="nm">' + esc(corto(x.nombre)) + (x.ancla ? ' <span class="chip" style="margin:0;">ancla</span>' : '') + '</div><div class="dt">' + (a.debe > 0 ? 'le toca ' + m(a.debe) : 'ya cubrió su parte') + '</div></div>' +
           '<input type="number" inputmode="decimal" id="pi_' + k + '" value="' + (a.si && a.monto ? a.monto : '') + '" style="width:92px;border:1px solid var(--ln);border-radius:10px;padding:8px;text-align:right;background:var(--sf);" oninput="pagoAp(\'' + k + '\', this.value)"></div>'; }).join('');
-      h += '<p class="mini">Quien quede sin palomita y deba algo queda anotado como "queda debiendo".</p>';
+      h += '<p class="mini">Quien quede sin palomita y deba algo queda anotado como "queda debiendo". Si alguien quiere adelantar, regístralo en la cuota siguiente.</p>';
     }
     h += '<label class="fld">Monto recibido<input id="pMonto" type="number" inputmode="decimal" value="' + (p.monto || '') + '" ' + (i.grupal ? 'readonly ' : '') + 'oninput="PG.monto=Number(this.value)||0;pagoResumen()" style="font-size:18px;"></label>' +
       '<label class="fld">Fecha del pago<input type="date" value="' + p.fecha + '" max="' + hoyIso() + '" onchange="PG.fecha=this.value;pagoPintar()"></label>' +
@@ -405,11 +409,11 @@ function pagoPintar(){ var p = PG, c = p.c, i = p.info;
   abrirPanel(h + '</div>'); if (i) pagoResumen(); }
 function pagoMonto(sinPintar){ PG.monto = pagoSuma(); if (sinPintar) { $('pMonto').value = PG.monto || ''; if ($('pSuma')) $('pSuma').textContent = m(PG.monto); pagoResumen(); } else pagoPintar(); }
 // 15/11/2026: palomita y cantidad van juntas. Palomita → pone lo que le toca (o su pago semanal si ya cubrió); sin palomita → cantidad en blanco.
-function pagoMarca(k, si){ var a = PG.ap[k]; if (!a) return; a.si = si;
-  if (si) { if (!(a.monto > 0)) a.monto = a.debe > 0 ? a.debe : a.pago; } else a.monto = 0;
+function pagoMarca(k, si){ var a = PG.ap[k]; if (!a || !(a.debe > 0)) return; a.si = si;
+  if (si) { if (!(a.monto > 0)) a.monto = a.debe; } else a.monto = 0;
   var c = $('pc_' + k), e = $('pi_' + k); if (c) c.checked = si; if (e) e.value = si && a.monto ? a.monto : '';
   pagoMonto(true); }
-function pagoAp(k, v){ var a = PG.ap[k]; if (!a) return; a.monto = Number(v) || 0; a.si = a.monto > 0; var c = $('pc_' + k); if (c) c.checked = a.si; pagoMonto(true); }
+function pagoAp(k, v){ var a = PG.ap[k]; if (!a || !(a.debe > 0)) return; a.monto = Number(v) || 0; a.si = a.monto > 0; var c = $('pc_' + k); if (c) c.checked = a.si; pagoMonto(true); }
 function pagoResumen(){ var p = PG, i = p.info, mo = Number(p.monto) || 0, el = $('pRes'); if (!el) return; var t = '';
   if (!(mo > 0)) t = 'Escribe el monto.'; else if (mo > i.falta + 0.5) t = '⚠️ Es más de lo que falta (' + m(i.falta) + '). Para varias cuotas usa Registrar pago en la computadora.';
   else { t = mo >= i.falta - 0.5 ? '✓ La cuota #' + i.num + ' queda PAGADA.' : 'Queda PARCIAL: faltan ' + m(i.falta - mo) + '.';
