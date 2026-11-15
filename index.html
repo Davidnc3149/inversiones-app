@@ -21,7 +21,7 @@
   .marca{font-family:Fraunces,serif;font-size:21px;color:var(--ac);} .fecha{font-size:12.5px;color:var(--mu);}
   .yo{font-size:12px;font-weight:700;background:var(--acs);color:var(--ac2);border-radius:99px;padding:3px 10px;border:0;}
   .kpis{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
-  .k{background:var(--sf);border:1px solid var(--ln);border-radius:14px;padding:10px 12px;} .k .t{font-size:10.5px;color:var(--mu);text-transform:uppercase;letter-spacing:.5px;font-weight:700;}
+  .k{background:var(--sf);border:1px solid var(--ln);border-radius:14px;padding:10px 12px;} .kpis>.k{min-width:0;} @media (max-width:380px){ .kpis>.k{padding:9px 9px;} .kpis>.k .dato{font-size:12.5px;gap:4px;} } .k .dato span{white-space:nowrap;} .k .dato span:last-child{font-variant-numeric:tabular-nums;} .k .t{font-size:10.5px;color:var(--mu);text-transform:uppercase;letter-spacing:.5px;font-weight:700;}
   .k .v{font-family:Fraunces,serif;font-size:21px;margin-top:2px;font-variant-numeric:tabular-nums;} .k .s{font-size:11.5px;color:var(--mu);}
   .k.p{background:var(--ac);border-color:var(--ac);color:#fff;} .k.p .t,.k.p .s{color:#d7efe6;} .k.r .v{color:var(--bad);}
   h2.sec{font-family:Fraunces,serif;font-size:17px;margin:18px 0 8px;display:flex;justify-content:space-between;align-items:center;gap:8px;}
@@ -200,7 +200,10 @@ function filaCred(c, modo, accion){
 }
 function fechaT(s){ var p = String(s || '').split('/'); return p.length === 3 ? new Date(+p[2], +p[1] - 1, +p[0]).getTime() : 0; }
 var PANEL_H = false;
-function abrirPanel(h){ var p = $('panel'), ya = p.style.display === 'block'; p.innerHTML = h; p.style.display = 'block'; p.scrollTop = 0; if (!ya && history.pushState) { history.pushState({ f: 1 }, ''); PANEL_H = true; } }
+function abrirPanel(h){ var p = $('panel'), ya = p.style.display === 'block', t0 = ya && p.querySelector('.big') ? p.querySelector('.big').textContent : null, y0 = p.scrollTop;
+  p.innerHTML = h; p.style.display = 'block'; var t1 = p.querySelector('.big') ? p.querySelector('.big').textContent : '';
+  p.scrollTop = (t0 !== null && t0 === t1) ? y0 : 0;   /* 15/11/2026: al repintar la misma pantalla (palomitas, cuenta, fecha) no brinca hasta arriba */
+  if (!ya && history.pushState) { history.pushState({ f: 1 }, ''); PANEL_H = true; } }
 // v2.2: al cerrar con un botón también se quita la entrada del historial (así "atrás" del celular no se traba)
 function cerrarPanel(){ var abierto = $('panel').style.display === 'block'; $('panel').style.display = 'none'; $('panel').innerHTML = ''; cerrarModal(); if (abierto && PANEL_H) { PANEL_H = false; history.back(); } }
 window.onpopstate = function(){ if ($('modal2').className.indexOf('on') >= 0) { cerrarCred(); if ($('panel').style.display === 'block' && history.pushState) history.pushState({ f: 1 }, ''); return; } if ($('modal').className.indexOf('on') >= 0) { cerrarModal(); if ($('panel').style.display === 'block' && history.pushState) history.pushState({ f: 1 }, ''); return; } if ($('panel').style.display === 'block') { PANEL_H = false; cerrarPanel(); } else if ($('drw').className.indexOf('on') >= 0) menu(false); };
@@ -374,7 +377,7 @@ function pagoAbrir(id){ var c = credDe(id); if (!c) return;
 function pagoCargarCuota(){ var p = PG; p.info = null; p.error = ''; pagoPintar();
   leer('appCuota', [p.idVenc], function(r){ if (PG !== p) return; p.info = r; p.monto = r.falta; p.ap = {};
       if (r.grupal) { var debe = {}; (r.quien || []).forEach(function(x){ debe[String(x.id).toUpperCase()] = x.monto; });
-        r.integrantes.forEach(function(i){ var k = String(i.id).toUpperCase(), d = (r.quien && r.quien.length) ? (debe[k] || 0) : i.pago; p.ap[k] = { debe: d, monto: d, si: d > 0 }; }); }
+        r.integrantes.forEach(function(i){ var k = String(i.id).toUpperCase(), d = (r.quien && r.quien.length) ? (debe[k] || 0) : i.pago; p.ap[k] = { debe: d, monto: d, si: d > 0, pago: Number(i.pago) || 0 }; }); }
       pagoPintar(); }, function(e){ if (PG !== p) return; p.error = e.message; pagoPintar(); }); }
 function pagoSuma(){ var s = 0; Object.keys(PG.ap).forEach(function(k){ var a = PG.ap[k]; if (a.si) s += Number(a.monto) || 0; }); return Math.round(s * 100) / 100; }
 function pagoPintar(){ var p = PG, c = p.c, i = p.info;
@@ -386,10 +389,10 @@ function pagoPintar(){ var p = PG, c = p.c, i = p.info;
     h += '<div class="dato"><span>Falta de la cuota #' + i.num + '</span><span>' + m(i.falta) + '</span></div>';
     if (i.bonifLim && p.fecha > i.bonifLim) h += '<div class="aviso a">⚠️ Con fecha ' + fIso(p.fecha) + ' este grupo PIERDE la bonificación (límite ' + fIso(i.bonifLim) + ').</div>';
     if (i.grupal) {
-      h += '<h2 class="sec">¿Quién pagó?<span class="n">' + m(pagoSuma()) + '</span></h2>';
+      h += '<h2 class="sec">¿Quién pagó?<span class="n" id="pSuma">' + m(pagoSuma()) + '</span></h2>';
       h += i.integrantes.map(function(x){ var k = String(x.id).toUpperCase(), a = p.ap[k] || { debe: 0, monto: 0, si: false };
-        return '<div class="f" style="cursor:default;"><input type="checkbox" style="width:20px;height:20px;accent-color:var(--ac);"' + (a.si ? ' checked' : '') + ' onchange="PG.ap[\'' + k + '\'].si=this.checked;pagoMonto()"><div class="tx"><div class="nm">' + esc(corto(x.nombre)) + (x.ancla ? ' <span class="chip" style="margin:0;">ancla</span>' : '') + '</div><div class="dt">' + (a.debe > 0 ? 'le toca ' + m(a.debe) : 'ya cubrió su parte') + '</div></div>' +
-          '<input type="number" inputmode="decimal" value="' + (a.monto || '') + '" style="width:92px;border:1px solid var(--ln);border-radius:10px;padding:8px;text-align:right;background:var(--sf);" oninput="PG.ap[\'' + k + '\'].monto=Number(this.value)||0;PG.ap[\'' + k + '\'].si=PG.ap[\'' + k + '\'].monto>0;pagoMonto(true)"></div>'; }).join('');
+        return '<div class="f" style="cursor:default;"><input type="checkbox" id="pc_' + k + '" style="width:22px;height:22px;accent-color:var(--ac);flex:none;"' + (a.si ? ' checked' : '') + ' onchange="pagoMarca(\'' + k + '\', this.checked)"><div class="tx" style="cursor:pointer;" onclick="pagoMarca(\'' + k + '\', !PG.ap[\'' + k + '\'].si)"><div class="nm">' + esc(corto(x.nombre)) + (x.ancla ? ' <span class="chip" style="margin:0;">ancla</span>' : '') + '</div><div class="dt">' + (a.debe > 0 ? 'le toca ' + m(a.debe) : 'ya cubrió su parte') + '</div></div>' +
+          '<input type="number" inputmode="decimal" id="pi_' + k + '" value="' + (a.si && a.monto ? a.monto : '') + '" style="width:92px;border:1px solid var(--ln);border-radius:10px;padding:8px;text-align:right;background:var(--sf);" oninput="pagoAp(\'' + k + '\', this.value)"></div>'; }).join('');
       h += '<p class="mini">Quien quede sin palomita y deba algo queda anotado como "queda debiendo".</p>';
     }
     h += '<label class="fld">Monto recibido<input id="pMonto" type="number" inputmode="decimal" value="' + (p.monto || '') + '" ' + (i.grupal ? 'readonly ' : '') + 'oninput="PG.monto=Number(this.value)||0;pagoResumen()" style="font-size:18px;"></label>' +
@@ -400,11 +403,17 @@ function pagoPintar(){ var p = PG, c = p.c, i = p.info;
       '<button class="btn bp" id="pBtn" onclick="pagoGuardar()">Registrar ' + m(p.monto) + '</button>';
   }
   abrirPanel(h + '</div>'); if (i) pagoResumen(); }
-function pagoMonto(sinPintar){ PG.monto = pagoSuma(); if (sinPintar) { $('pMonto').value = PG.monto || ''; pagoResumen(); } else pagoPintar(); }
+function pagoMonto(sinPintar){ PG.monto = pagoSuma(); if (sinPintar) { $('pMonto').value = PG.monto || ''; if ($('pSuma')) $('pSuma').textContent = m(PG.monto); pagoResumen(); } else pagoPintar(); }
+// 15/11/2026: palomita y cantidad van juntas. Palomita → pone lo que le toca (o su pago semanal si ya cubrió); sin palomita → cantidad en blanco.
+function pagoMarca(k, si){ var a = PG.ap[k]; if (!a) return; a.si = si;
+  if (si) { if (!(a.monto > 0)) a.monto = a.debe > 0 ? a.debe : a.pago; } else a.monto = 0;
+  var c = $('pc_' + k), e = $('pi_' + k); if (c) c.checked = si; if (e) e.value = si && a.monto ? a.monto : '';
+  pagoMonto(true); }
+function pagoAp(k, v){ var a = PG.ap[k]; if (!a) return; a.monto = Number(v) || 0; a.si = a.monto > 0; var c = $('pc_' + k); if (c) c.checked = a.si; pagoMonto(true); }
 function pagoResumen(){ var p = PG, i = p.info, mo = Number(p.monto) || 0, el = $('pRes'); if (!el) return; var t = '';
   if (!(mo > 0)) t = 'Escribe el monto.'; else if (mo > i.falta + 0.5) t = '⚠️ Es más de lo que falta (' + m(i.falta) + '). Para varias cuotas usa Registrar pago en la computadora.';
   else { t = mo >= i.falta - 0.5 ? '✓ La cuota #' + i.num + ' queda PAGADA.' : 'Queda PARCIAL: faltan ' + m(i.falta - mo) + '.';
-    if (i.grupal) { var deben = Object.keys(p.ap).filter(function(k){ return !p.ap[k].si && p.ap[k].debe > 0; }).map(function(k){ var x = i.integrantes.filter(function(z){ return String(z.id).toUpperCase() === k; })[0]; return x ? primer(x.nombre) : k; });
+    if (i.grupal) { var deben = Object.keys(p.ap).filter(function(k){ var a = p.ap[k]; return a.debe > 0 && (!a.si || a.monto < a.debe - 0.5); }).map(function(k){ var a = p.ap[k], x = i.integrantes.filter(function(z){ return String(z.id).toUpperCase() === k; })[0]; return (x ? primer(x.nombre) : k) + ' (' + m(a.si ? a.debe - a.monto : a.debe) + ')'; });   // 15/11/2026: también quien pagó solo una parte
       if (deben.length) t += ' Quedan debiendo: ' + deben.join(', ') + '.'; } }
   el.textContent = t; var b = $('pBtn'); if (b) { b.textContent = 'Registrar ' + m(mo) + ' en ' + p.cuenta; b.disabled = !(mo > 0) || mo > i.falta + 0.5; } }
 function pagoGuardar(){ var p = PG, i = p.info, mo = Math.round((Number(p.monto) || 0) * 100) / 100; if (!i || !(mo > 0) || mo > i.falta + 0.5) return;
@@ -593,15 +602,18 @@ function mcPintar(){ var d = MC.d, f = MC.f, opt = function(k, L){ return '<sele
   h += '<h2 class="sec">Condiciones y tabla</h2>';
   if (d.esGrupal) h += '<div class="aviso a">En grupales los montos, integrantes y pago por mil se cambian en Modificar crédito de la computadora.</div>';
   else if (d.pagos > 0) h += '<div class="aviso a">Ya tiene ' + d.pagos + ' pago(s): no se pueden cambiar monto, tasa, plazo ni fechas.</div>';
-  else { h += '<div class="grid2"><label class="fld">Monto<input type="number" inputmode="decimal" value="' + esc(f.monto) + '" oninput="MC.f.monto=this.value;MC.prev=null"></label><label class="fld">Tasa mensual (%)<input type="number" inputmode="decimal" step="0.0001" value="' + esc(f.tasa) + '" oninput="MC.f.tasa=this.value;MC.prev=null;mcPintar()"></label>' +
-      '<label class="fld">Tipo' + opt('tipo', ['COMPUESTO','SIMPLE']).replace('MC.f.tipo=this.value', 'MC.f.tipo=this.value;MC.prev=null') + '</label><label class="fld">Frecuencia' + opt('frecuencia', ['QUINCENAL','MENSUAL']).replace('MC.f.frecuencia=this.value', 'MC.f.frecuencia=this.value;MC.prev=null') + '</label>' +
-      '<label class="fld">Plazo (núm. de pagos)<input type="number" inputmode="numeric" value="' + esc(f.plazo) + '" oninput="MC.f.plazo=this.value;MC.prev=null"></label><label class="fld">Firma<input type="date" value="' + esc(f.firma) + '" onchange="MC.f.firma=this.value;MC.prev=null"></label>' +
-      '<label class="fld">Primer pago<input type="date" value="' + esc(f.primerPago) + '" onchange="MC.f.primerPago=this.value;MC.prev=null"></label></div>' +
+  else { h += '<div class="grid2"><label class="fld">Monto<input type="number" inputmode="decimal" value="' + esc(f.monto) + '" oninput="MC.f.monto=this.value;MC.prev=null;mcSinPrev()"></label><label class="fld">Tasa mensual (%)<input type="number" inputmode="decimal" step="0.0001" value="' + esc(f.tasa) + '" oninput="MC.f.tasa=this.value;mcSinPrev();mcTasaC()"></label>' +
+      '<label class="fld">Tipo' + opt('tipo', ['COMPUESTO','SIMPLE']).replace('MC.f.tipo=this.value', 'MC.f.tipo=this.value;mcSinPrev()') + '</label><label class="fld">Frecuencia' + opt('frecuencia', ['QUINCENAL','MENSUAL']).replace('MC.f.frecuencia=this.value', 'MC.f.frecuencia=this.value;mcSinPrev()') + '</label>' +
+      '<label class="fld">Plazo (núm. de pagos)<input type="number" inputmode="numeric" value="' + esc(f.plazo) + '" oninput="MC.f.plazo=this.value;MC.prev=null;mcSinPrev()"></label><label class="fld">Firma<input type="date" value="' + esc(f.firma) + '" onchange="MC.f.firma=this.value;MC.prev=null;mcSinPrev()"></label>' +
+      '<label class="fld">Primer pago<input type="date" value="' + esc(f.primerPago) + '" onchange="MC.f.primerPago=this.value;MC.prev=null;mcSinPrev()"></label></div>' +
       '<label class="fld">Contrato<select onchange="MC.f.contrato=this.value">' + [['nuevo','Generar uno nuevo'],['ajustar','Conservar el mismo (solo fechas / montos sin cruzar $10,000)'],['no','No tocar el contrato']].map(function(o){ return '<option value="' + o[0] + '"' + (f.contrato === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></label>' +
-      (Math.abs(num(f.tasa) - d.tasa) > 0.0001 ? '<label class="fld">Tasa pactada para el contrato (ej. 10)<input type="number" inputmode="decimal" value="' + esc(f.tasaContrato) + '" oninput="MC.f.tasaContrato=this.value"></label>' : '') +
+      '<label class="fld" id="mcTC"' + (Math.abs(num(f.tasa) - d.tasa) > 0.0001 ? '' : ' style="display:none"') + '>Tasa pactada para el contrato (ej. 10)<input type="number" inputmode="decimal" value="' + esc(f.tasaContrato) + '" oninput="MC.f.tasaContrato=this.value"></label>' +
       '<button class="btn bs" onclick="mcPrevia()">Ver cómo queda</button><div id="mcPv"></div>'; }
   h += '<p class="mini">Cada cambio queda anotado en el crédito y en la bitácora con tu nombre.</p>';
   abrirPanel(h + '</div>'); if (MC.prev) mcPintarPrev(); }
+// 15/11/2026: si cambias algo después de "Ver cómo queda", la vista previa vieja (y su botón Aplicar) se quita
+function mcTasaC(){ var el = $('mcTC'); if (el) el.style.display = Math.abs(num(MC.f.tasa) - MC.d.tasa) > 0.0001 ? '' : 'none'; }
+function mcSinPrev(){ MC.prev = null; var el = $('mcPv'); if (el) el.innerHTML = ''; }
 function mcDatos(){ var f = MC.f; return { id: MC.d.id, monto: num(f.monto), tasa: num(f.tasa), tipo: f.tipo, frecuencia: f.frecuencia, plazo: num(f.plazo), firma: f.firma, primerPago: f.primerPago, cuenta: f.cuenta, origen: f.origen, promotor: f.promotor, riesgo: f.riesgo, abonoMenor: f.abonoMenor, contrato: f.contrato, tasaContrato: num(f.tasaContrato) }; }
 function mcPrevia(){ $('mcPv').innerHTML = cargando('Calculando…'); leer('appMcPrevia', [mcDatos()], function(r){ MC.prev = r; mcPintarPrev(); }, function(e){ $('mcPv').innerHTML = '<div class="aviso r">' + esc(e.message) + '</div>'; }); }
 function mcPintarPrev(){ var r = MC.prev, el = $('mcPv'); if (!el || !r) return;
