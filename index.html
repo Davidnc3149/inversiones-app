@@ -154,6 +154,7 @@ function salir(){ if (TOKEN) api({ accion: 'salir', token: TOKEN }, function(){}
 function cargar(){
   if (!D) { var g0 = leerLocal('ic_app_datos'); if (g0) { try { D = JSON.parse(g0); } catch (x) { D = null; } } }
   if (D) { D._cargando = true; pintarNav(); pintar(); } else $('app').innerHTML = cargando('Cargando tu cartera…');
+  if (D && adm() && CX && (TAB === 'caja' || TAB === 'movs')) cajaCargar(true);   // 15/11/2026: ↻ en Caja también trae saldos nuevos
   if (D && adm()) cargarResumen(true);   // v2.2: en paralelo con la cartera (antes esperaba a que terminara)
   api({ accion: 'api', token: TOKEN, fn: 'appDatos' }, function(d){ var y = window.scrollY; D = d; D._hora = new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }); D._viejo = false; D._cargando = false; guardarLocal('ic_app_datos', JSON.stringify(D)); pintarNav(); pintar(); window.scrollTo(0, y);
       if (adm()) cargarResumen(false); },
@@ -193,7 +194,11 @@ function cabeza(sub){ var f = new Date(D.hoy + 'T12:00:00');
     (D._cargando ? '<div class="aviso ok" style="display:flex;gap:8px;align-items:center;"><span class="spin" style="width:14px;height:14px;border-width:2px;"></span>Actualizando… (estos datos son de las ' + esc(D._hora || '') + ')</div>' : '') +
     (!D._cargando && D._viejo ? '<div class="aviso a">Sin conexión: estos datos son de las ' + esc(D._hora || '') + '. Toca ↻ cuando tengas señal.</div>' : ''); }
 function pintar(){ if (!D) return; var V = { hoy: vHoy, creditos: vCreditos, cobrar: vCobrar, pagos: vPagos, caja: vCaja, movs: vMovs, proy: vProy, dispersar: vDispersar, nuevo: vNuevo, modificar: vModificar, reportes: vReportes };
-  if (!adm() && ['hoy', 'creditos', 'cobrar', 'reportes'].indexOf(TAB) < 0) TAB = 'hoy'; (V[TAB] || vHoy)(); }
+  if (!adm() && ['hoy', 'creditos', 'cobrar', 'reportes'].indexOf(TAB) < 0) TAB = 'hoy';
+  // 15/11/2026: si estabas escribiendo (buscador, bloque de nuevo crédito) y llegan datos nuevos, no se cierra el teclado
+  var ae = document.activeElement, fx = null; if (ae && $('app').contains(ae) && /^(INPUT|TEXTAREA)$/.test(ae.tagName)) { var all = $('app').querySelectorAll('input,textarea'); fx = { i: Array.prototype.indexOf.call(all, ae), id: ae.id, v: ae.value, a: ae.selectionStart, b: ae.selectionEnd }; }
+  (V[TAB] || vHoy)();
+  if (fx) { var e2 = fx.id ? $(fx.id) : $('app').querySelectorAll('input,textarea')[fx.i]; if (e2) { if (e2.value !== fx.v) e2.value = fx.v; e2.focus(); try { e2.setSelectionRange(fx.a, fx.b); } catch (x) {} } } }
 function activos(){ return D.creditos.filter(function(c){ return !c.porDispersar; }); }
 function credDe(id){ return D.creditos.filter(function(x){ return x.id === id; })[0]; }
 function tipoK(c){ return !c ? '' : (c.modalidad === 'GRUPAL' ? 'G' : (/SIMPLE/i.test(c.tipo) ? 'S' : 'C')); }
