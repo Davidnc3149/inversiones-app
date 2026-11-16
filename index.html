@@ -210,11 +210,11 @@ function activos(){ return D.creditos.filter(function(c){ return !c.porDispersar
 function credDe(id){ return D.creditos.filter(function(x){ return x.id === id; })[0]; }
 function tipoK(c){ return !c ? '' : (c.modalidad === 'GRUPAL' ? 'G' : (/SIMPLE/i.test(c.tipo) ? 'S' : 'C')); }
 function filaCred(c, modo, accion){
-  var rojo = c.vencido > 0, mo = modo === 'venc' ? c.vencido : (modo === 'prox' && c.prox ? c.prox.falta : (c.porDispersar ? c.monto : c.debe));
+  var rojo = c.vencido > 0, base = modo !== 'venc' && !(modo === 'prox' && c.prox), mo = modo === 'venc' ? c.vencido : (modo === 'prox' && c.prox ? c.prox.falta : c.monto);   // 16/11/2026: en la lista va el monto original; lo que debe, abajo
   var det = c.id + ' · ' + (c.modalidad === 'GRUPAL' ? 'grupal' : (c.tipo || 'individual').toLowerCase()) +
     (modo === 'venc' ? ' · ' + c.cuotasVencidas + ' cuota' + (c.cuotasVencidas === 1 ? '' : 's') : (modo === 'prox' && c.prox ? ' · cuota ' + c.prox.num + ' · ' + c.prox.fecha.slice(0, 5) : (c.porDispersar ? ' · por dispersar' : '')));
   return '<button class="f" onclick="' + (accion || 'ficha') + '(\'' + c.id + '\')"><div class="av' + (rojo ? ' r' : '') + '">' + esc(ini(c.nombre)) + '</div><div class="tx"><div class="nm">' + esc(corto(c.nombre)) + '</div><div class="dt">' + esc(det) + '</div></div>' +
-    '<div class="mt">' + m(mo) + (modo === 'venc' ? '<small>' + c.diasAtraso + ' día' + (c.diasAtraso === 1 ? '' : 's') + '</small>' : '') + '</div></button>';
+    '<div class="mt">' + m(mo) + (modo === 'venc' ? '<small>' + c.diasAtraso + ' día' + (c.diasAtraso === 1 ? '' : 's') + '</small>' : (base && !c.porDispersar ? (rojo ? '<small style="color:var(--bad)">venc. ' + m(c.vencido) + ' · ' + c.diasAtraso + ' d</small>' : '<small style="color:var(--mu);font-weight:600">debe ' + m(c.debe) + '</small>') : '')) + '</div></button>';
 }
 function fechaT(s){ var p = String(s || '').split('/'); return p.length === 3 ? new Date(+p[2], +p[1] - 1, +p[0]).getTime() : 0; }
 var PANEL_H = false;
@@ -294,7 +294,7 @@ function listaC(){
   var L = buscaCreds(activos(), FILTRO).filter(function(c){
     if (SEGC === 'venc' && !(c.vencido > 0)) return false; if (SEGC === 'grupal' && tipoK(c) !== 'G') return false; if (SEGC === 'comp' && tipoK(c) !== 'C') return false; if (SEGC === 'simple' && tipoK(c) !== 'S') return false; return true; });
   L.sort(function(a, b){ return b.vencido - a.vencido || b.id.localeCompare(a.id); });
-  $('lc').innerHTML = L.length ? '<p class="mini">' + L.length + ' crédito(s) · debe ' + m(L.reduce(function(s, c){ return s + c.debe; }, 0)) + '</p>' + L.map(function(c){ return filaCred(c, c.vencido > 0 ? 'venc' : 'debe'); }).join('') : '<div class="vacio">No hay créditos con eso.</div>'; }
+  $('lc').innerHTML = L.length ? '<p class="mini">' + L.length + ' crédito(s) · prestado ' + m(L.reduce(function(s, c){ return s + (Number(c.monto) || 0); }, 0)) + ' · debe ' + m(L.reduce(function(s, c){ return s + c.debe; }, 0)) + '</p>' + L.map(function(c){ return filaCred(c, 'lista'); }).join('') : '<div class="vacio">No hay créditos con eso.</div>'; }
 
 // ---------- FICHA ----------
 function ficha(id){ var c = credDe(id); if (!c) return;
