@@ -310,8 +310,9 @@ function ficha(id){ var c = credDe(id); if (!c) return;
     '<div class="k' + (c.vencido > 0 ? ' r' : '') + '"><div class="t">Vencido</div><div class="v">' + m(c.vencido) + '</div><div class="s">' + (c.prox ? 'próx. ' + c.prox.fecha.slice(0, 5) + ' ' + m(c.prox.falta) : '') + '</div></div></div>';
   var ab = c.cuotas.filter(function(q){ return q.falta > 0.5; }), pg = c.cuotas.filter(function(q){ return !(q.falta > 0.5); });
   if (adm()) h += '<div class="acc" style="margin-top:10px;">' + (!c.porDispersar && ab.length ? '<button onclick="pagoAbrir(\'' + c.id + '\')"><b>💵</b>Registrar pago</button>' : '') + (c.porDispersar ? '<button onclick="dspAbrir(\'' + c.id + '\')"><b>💸</b>Dispersar</button>' : '') +
-    '<button onclick="mcAbrir(\'' + c.id + '\')"><b>✏️</b>Modificar</button><button onclick="repAbrir(\'' + c.id + '\')"><b>📄</b>Reporte</button></div>';
-  else h += '<button class="btn bs" onclick="repAbrir(\'' + c.id + '\')">📄 Reporte del crédito</button>';
+    '<button onclick="mcAbrir(\'' + c.id + '\')"><b>✏️</b>Modificar</button><button onclick="repAbrir(\'' + c.id + '\')"><b>📄</b>Reporte</button>' +
+    (!c.porDispersar ? '<button onclick="moraAbrir(\'' + c.id + '\')"><b>⚖️</b>Moratorios</button>' : '') + '</div>';
+  else h += '<button class="btn bs" onclick="repAbrir(\'' + c.id + '\')">📄 Reporte del crédito</button>' + (c.vencido > 0 && !c.porDispersar ? '<button class="btn bs" onclick="moraAbrir(\'' + c.id + '\')">⚖️ Moratorios y cobranza</button>' : '');
   if (c.modalidad === 'GRUPAL' && c.integrantes.length) {
     h += '<h2 class="sec">Integrantes<span class="n">' + c.integrantes.length + '</span></h2>' + (c.sinDesglose ? '<div class="aviso a">Hay pagos sin desglose por persona: lo que debe cada quien puede no estar completo.</div>' : '');
     h += c.integrantes.map(function(i){ var txt = i.debe > 0 ? 'Hola ' + primer(i.nombre) + ', le saluda Inversiones Conscientes. En el grupo ' + c.id + ' tiene pendiente ' + m(i.debe) + ' de su aportación semanal (' + m(i.pago) + '). ¿Nos confirma cuándo lo cubre? Concepto: PAGO PRESTAMO ' + c.id.replace(/\D/g, '').slice(-4) + '.' : '';
@@ -417,7 +418,7 @@ function pagoCargarCuota(){ var p = PG; p.info = null; p.error = ''; pagoPintar(
         if (resto > 0.5) { var an = r.integrantes.filter(function(z){ return z.ancla; })[0] || r.integrantes[0]; if (an) { var x = p.ap[String(an.id).toUpperCase()]; x.debe = Math.round((x.debe + resto) * 100) / 100; x.monto = x.debe; x.si = true; } } }
       pagoPintar(); }, function(e){ if (PG !== p) return; p.error = e.message; pagoPintar(); }); }
 function pagoSuma(){ var s = 0; Object.keys(PG.ap).forEach(function(k){ var a = PG.ap[k]; if (a.si) s += Number(a.monto) || 0; }); return Math.round(s * 100) / 100; }
-function pagoPintar(){ var p = PG, c = p.c, i = p.info;
+function pagoPintar(){ var p = PG, c = p.c, i = p.info; if (p.tipo === 'cuota') moraPago(p);
   var h = '<div class="w"><button class="back" onclick="history.back()">← Volver</button><div class="big">Registrar pago</div><div class="mini">' + esc(c.id) + ' · ' + esc(tit(c.nombre)) + ' · ' + (c.modalidad === 'GRUPAL' ? 'grupal' : 'individual') + '</div>';
   var ind = c.modalidad !== 'GRUPAL';   // 15/11/2026: igual que la computadora: solo cuota · cuota + capital · solo capital (individuales)
   if (ind) h += '<h2 class="sec">¿Qué es?</h2><div class="seg3">' + [['cuota','Solo cuota'],['capital','Cuota + capital'],['solo','Solo capital']].map(function(x){ return '<button class="' + (p.tipo === x[0] ? 'on' : '') + '" onclick="pagoTipo(\'' + x[0] + '\')">' + x[1] + '</button>'; }).join('') + '</div>';
@@ -440,8 +441,9 @@ function pagoPintar(){ var p = PG, c = p.c, i = p.info;
           '<input type="number" inputmode="decimal" id="pi_' + k + '" value="' + (a.si && a.monto ? a.monto : '') + '" style="width:92px;border:1px solid var(--ln);border-radius:10px;padding:8px;text-align:right;background:var(--sf);" oninput="pagoAp(\'' + k + '\', this.value)"></div>'; }).join('');
       h += '<p class="mini">Quien quede sin palomita y deba algo queda anotado como "queda debiendo". Si alguien quiere adelantar, regístralo en la cuota siguiente.</p>';
     }
-    h += '<label class="fld">' + (p.tipo === 'capital' ? 'Pago de la cuota (sin la aportación)' : 'Monto recibido') + '<input id="pMonto" type="number" inputmode="decimal" value="' + (p.monto || '') + '" ' + (i.grupal ? 'readonly ' : '') + 'oninput="PG.monto=Number(this.value)||0;pagoResumen()" style="font-size:18px;"></label>' +
+    h += '<label class="fld">' + (p.tipo === 'capital' ? 'Pago de la cuota (sin la aportación)' : (p.mo && p.mo.r && p.mo.r.moraNeta > 0.5 ? 'Pago a la cuota (sin el moratorio)' : 'Monto recibido')) + '<input id="pMonto" type="number" inputmode="decimal" value="' + (p.monto || '') + '" ' + (i.grupal ? 'readonly ' : '') + 'oninput="PG.monto=Number(this.value)||0;pagoResumen()" style="font-size:18px;"></label>' +
       (p.tipo === 'capital' ? '<label class="fld">Aportación a capital<input id="pApC" type="number" inputmode="decimal" value="' + esc(p.apC) + '" oninput="PG.apC=this.value;pagoResumen()" style="font-size:18px;"></label>' : '') +
+      (p.tipo === 'cuota' ? moraPagoHtml(p) : '') +
       pagoComunes(p);
   }
   abrirPanel(h + '</div>'); if (i) pagoResumen(); }
@@ -509,13 +511,17 @@ function pagoResumen(){ var p = PG, i = p.info, mo = Number(p.monto) || 0, el = 
     else if (p.tipo === 'capital' && i && cu > i.falta + 0.5) t = '⚠️ El pago de la cuota pasa de lo que falta (' + m(i.falta) + '). Lo de más va en la aportación.';
     else t = (cu > 0 ? 'Cuota #' + i.num + ': ' + m(cu) + (cu >= i.falta - 0.5 ? ' (queda PAGADA)' : ' (queda PARCIAL)') + ' + ' : '') + 'capital ' + m(ac) + ' = total ' + m(cu + ac) + '. Antes de registrar te enseño cómo quedan sus cuotas.';
     el.textContent = t; if (b0) { b0.textContent = 'Revisar y registrar ' + m(cu + ac) + ' en ' + p.cuenta; b0.disabled = bad; } return; }
-  if (!(mo > 0)) t = 'Escribe el monto.'; else if (mo > i.falta + 0.5) { t = '⚠️ Es más de lo que falta (' + m(i.falta) + ').' + (p.c.modalidad !== 'GRUPAL' ? '' : ' Para varias cuotas usa Registrar pago en la computadora.');
+  if (!(mo > 0)) t = moraExtras(p).total > 0 ? '' : 'Escribe el monto.'; else if (mo > i.falta + 0.5) { t = '⚠️ Es más de lo que falta (' + m(i.falta) + ').' + (p.c.modalidad !== 'GRUPAL' ? '' : ' Para varias cuotas usa Registrar pago en la computadora.');
     if (p.c.modalidad !== 'GRUPAL') { el.innerHTML = esc(t) + ' <a href="#" onclick="pagoSobranteCap();return false;" style="color:var(--ac);font-weight:700;">El sobrante (' + m(mo - i.falta) + ') es aportación a capital →</a>'; if (b0) { b0.textContent = 'Registrar ' + m(mo) + ' en ' + p.cuenta; b0.disabled = true; } return; } }
   else { t = mo >= i.falta - 0.5 ? '✓ La cuota #' + i.num + ' queda PAGADA.' : 'Queda PARCIAL: faltan ' + m(i.falta - mo) + '.';
     if (i.grupal) { var deben = Object.keys(p.ap).filter(function(k){ var a = p.ap[k]; return a.debe > 0 && (!a.si || a.monto < a.debe - 0.5); }).map(function(k){ var a = p.ap[k], x = i.integrantes.filter(function(z){ return String(z.id).toUpperCase() === k; })[0]; return (x ? primer(x.nombre) : k) + ' (' + m(a.si ? a.debe - a.monto : a.debe) + ')'; });   // 15/11/2026: también quien pagó solo una parte
       if (deben.length) t += ' Quedan debiendo: ' + deben.join(', ') + '.'; } }
-  el.textContent = t; var b = $('pBtn'); if (b) { b.textContent = 'Registrar ' + m(mo) + ' en ' + p.cuenta; b.disabled = !(mo > 0) || mo > i.falta + 0.5; } }
-function pagoGuardar(){ var p = PG, i = p.info, mo = Math.round((Number(p.monto) || 0) * 100) / 100; if (p.tipo !== 'cuota' && p.c.modalidad !== 'GRUPAL') { pagoAbono(); return; } if (!i || !(mo > 0) || mo > i.falta + 0.5) return;
+  var ex = moraExtras(p);   // 17/11/2026: moratorio / gastos de cobranza
+  if (ex.total > 0) t = (mo > 0 ? t + ' ' : 'Sin pago de cuota. ') + 'Moratorio ' + m(ex.mora) + (ex.gastos > 0 ? ' + gastos de cobranza ' + m(ex.gastos) : '') + ' → total ' + m(mo + ex.total) + '.';
+  el.textContent = t; var b = $('pBtn'); if (b) { b.textContent = 'Registrar ' + m(mo + ex.total) + ' en ' + p.cuenta; b.disabled = (!(mo > 0) && !(ex.total > 0) && !ex.perd) || mo > i.falta + 0.5; } }
+function pagoGuardar(){ var p = PG, i = p.info, mo = Math.round((Number(p.monto) || 0) * 100) / 100; if (p.tipo !== 'cuota' && p.c.modalidad !== 'GRUPAL') { pagoAbono(); return; }
+  var ex = moraExtras(p); if (ex.total > 0 || ex.perd) { moraPagoGuardar(); return; }
+  if (!i || !(mo > 0) || mo > i.falta + 0.5) return;
   if (p.fecha > hoyIso()) { alert('La fecha no puede ser futura.'); return; }
   var ap = [], om = [];
   if (i.grupal) { Object.keys(p.ap).forEach(function(k){ var a = p.ap[k]; if (a.si && a.monto > 0) ap.push({ id: k, monto: a.monto }); else if (!a.si && a.debe > 0) om.push({ id: k, debe: a.debe }); });
@@ -524,6 +530,94 @@ function pagoGuardar(){ var p = PG, i = p.info, mo = Math.round((Number(p.monto)
   var b = $('pBtn'); b.disabled = true; b.textContent = 'Registrando… no cierres la app';
   escribir('appPago', [{ idVencimiento: p.idVenc, monto: mo, fecha: p.fecha, cuenta: p.cuenta, nota: p.nota, aportaciones: ap, omisos: om }],
     function(r){ PG = null; PL = null; abrirPanel('<div class="w"><div class="big">✅ Pago registrado</div><div class="aviso ok">' + esc(r.resumen || '') + '<br>' + esc(r.estado || '') + (r.repetido ? '<br>(ya se había registrado: no se duplicó)' : '') + '</div><button class="btn bp" onclick="cerrarPanel();cargar()">Listo</button></div>'); },
+    function(e){ b.disabled = false; pagoResumen(); alert(e.message); }, p.op); }
+
+// ---------- 17/11/2026: MORATORIOS Y GASTOS DE COBRANZA (mismo cálculo que la computadora) ----------
+// Al registrar, el moratorio y los gastos van en su propio renglón (no inflan lo pagado a la cuota).
+var MO = null;
+function moraAbrir(id){ var c = credDe(id); if (!c) return;
+  MO = { c: c, fecha: hoyIso(), o: { cobranza: false, cobranzaPct: 30, cobranzaBase: 'VENCIDO', incluirTardios: false, acelerar: false, tope: '' }, r: null, err: '' };
+  moraCargar(); }
+function moraCargar(){ var x = MO; x.r = null; x.err = ''; moraPintar();
+  leer('appMora', [{ idCred: x.c.id, fecha: x.fecha, opciones: x.o }], function(r){ if (MO !== x) return; x.r = r; moraPintar(); }, function(e){ if (MO !== x) return; x.err = e.message; moraPintar(); }); }
+function moraOp(k, v){ MO.o[k] = v; moraCargar(); }
+function moraPintar(){ var x = MO, c = x.c, r = x.r, o = x.o;
+  var h = '<div class="w"><button class="back" onclick="history.back()">← Volver</button><div class="big">⚖️ Moratorios y cobranza</div><div class="mini">' + esc(c.id) + ' · ' + esc(tit(c.nombre)) + '</div>' +
+    '<label class="fld">Calcular al<input type="date" value="' + x.fecha + '" onchange="MO.fecha=this.value;moraCargar()"></label>';
+  if (x.err) h += '<div class="aviso r">' + esc(x.err) + '</div>';
+  if (!r && !x.err) h += cargando('Calculando…');
+  if (r) {
+    h += '<div class="msg" style="margin-top:10px;"><div class="dato"><span>Vencido sin pagar' + (r.nAbiertas ? ' (' + r.nAbiertas + ' cuota' + (r.nAbiertas === 1 ? '' : 's') + ')' : '') + '</span><b style="color:var(--bad)">' + m(r.vencido) + '</b></div>' +
+      '<div class="dato"><span>Moratorio ' + r.tasa + '% mensual</span><b style="color:var(--bad)">' + m(r.moraNeta) + '</b></div>' +
+      (r.moraCobrada > 0 ? '<div class="dato"><span>Ya cobrado de moratorio</span><span>' + m(r.moraCobrada) + '</span></div>' : '') +
+      (r.porDia > 0 ? '<div class="dato" style="border:0;"><span class="mini">Sube ' + m(r.porDia) + ' por día' + (r.gracia ? ' · ' + r.gracia + ' día(s) de gracia' : '') + '</span><span></span></div>' : '') + '</div>';
+    var L = r.det || [];
+    if (L.length) h += '<table class="cu"><tr><th>#</th><th>Venció</th><th class="r">Días</th><th class="r">Debe</th><th class="r">Moratorio</th></tr>' + L.map(function(d){ return '<tr><td>' + esc(d.num) + '</td><td>' + esc(String(d.fecha).slice(0, 5)) + '</td><td class="r">' + d.dias + '</td><td class="r">' + (d.pendiente > 0.5 ? m(d.pendiente) : '<span class="mini">pagó ' + esc(String(d.pagoTarde).slice(0, 5)) + '</span>') + '</td><td class="r">' + m(d.mora) + '</td></tr>'; }).join('') + '</table>';
+    var sw = function(k, on, txt, sub){ return '<label class="f" style="cursor:pointer;gap:10px;"><input type="checkbox"' + (on ? ' checked' : '') + ' onchange="moraOp(\'' + k + '\', this.checked)" style="width:22px;height:22px;accent-color:var(--ac);flex:none;"><div class="tx"><div class="nm" style="white-space:normal;">' + txt + '</div>' + (sub ? '<div class="dt" style="white-space:normal;">' + sub + '</div>' : '') + '</div></label>'; };
+    h += '<h2 class="sec">Ajustes</h2>' +
+      sw('cobranza', o.cobranza, 'Gastos de cobranza', 'Solo si ya hubo gestión de cobranza' + (r.gastosCobrados > 0 ? ' · ya se cobraron ' + m(r.gastosCobrados) : '')) +
+      (o.cobranza ? '<div style="display:flex;gap:8px;align-items:center;margin:4px 0 8px;"><input type="number" inputmode="decimal" value="' + esc(o.cobranzaPct) + '" style="width:70px;border:1px solid var(--ln);border-radius:10px;padding:8px;text-align:right;background:var(--sf);" onchange="moraOp(\'cobranzaPct\', this.value)"><span>%</span>' +
+        '<div class="seg" style="flex:1;margin:0;"><button class="' + (o.cobranzaBase !== 'TOTAL' ? 'on' : '') + '" onclick="moraOp(\'cobranzaBase\',\'VENCIDO\')">Lo vencido · ' + m(r.gastosVencido) + '</button><button class="' + (o.cobranzaBase === 'TOTAL' ? 'on' : '') + '" onclick="moraOp(\'cobranzaBase\',\'TOTAL\')">Saldo total · ' + m(r.gastosTotal) + '</button></div></div>' : '') +
+      sw('incluirTardios', o.incluirTardios, 'Pagos que llegaron tarde', r.moraTardios > 0 ? 'Moratorio de cuotas que ya pagó, pero tarde: ' + m(r.moraTardios) : 'No tiene') +
+      sw('acelerar', o.acelerar, 'Exigir todo el capital', 'Vencimiento anticipado: + ' + m(r.capFut)) +
+      '<div style="display:flex;gap:8px;align-items:center;margin:8px 0;"><span style="flex:1;">Tope del moratorio (% de lo vencido)</span><input type="number" inputmode="decimal" placeholder="sin tope" value="' + esc(o.tope) + '" style="width:90px;border:1px solid var(--ln);border-radius:10px;padding:8px;text-align:right;background:var(--sf);" onchange="moraOp(\'tope\', this.value)"></div>';
+    h += '<div class="k" style="background:var(--ac);color:var(--sf);border-radius:14px;padding:12px 14px;margin:10px 0;display:flex;justify-content:space-between;align-items:center;"><span>Total al ' + fIso(r.fecha) + '</span><b style="font-family:Fraunces,serif;font-size:22px;">' + m(r.total) + '</b></div>';
+    (r.avisos || []).forEach(function(a){ h += '<div class="aviso a">' + esc(a) + '</div>'; });
+    var tel = c.tel, msg = r.mensaje || '';
+    h += (tel ? '<a class="btn bw" target="_blank" href="' + wa(tel, msg) + '">💬 Mandar estado por WhatsApp</a>' : '') + '<button class="btn bs" onclick="moraCopiar()">📋 Copiar mensaje</button>' +
+      (adm() && r.total > 0.5 ? '<button class="btn bp" onclick="pagoAbrir(\'' + c.id + '\')">💵 Registrar pago</button>' : '');
+  }
+  abrirPanel(h + '</div>'); }
+function moraCopiar(){ var t = MO && MO.r && MO.r.mensaje || ''; if (!t) return;
+  var ok = function(){ var e = $('toast'); if (e) { e.textContent = 'Mensaje copiado'; e.classList.add('on'); setTimeout(function(){ e.classList.remove('on'); }, 1600); } else alert('Mensaje copiado.'); };
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(ok, function(){ prompt('Copia el mensaje:', t); }); else prompt('Copia el mensaje:', t); }
+
+// En Registrar pago (Solo cuota y grupales): moratorio sugerido a la fecha del pago, editable
+function moraPago(p){ if (!(p.c.vencido > 0)) { p.mo = null; return; } var k = p.fecha; if (p.mo && p.mo.fecha === k) return;
+  p.mo = { fecha: k, cargando: true, on: true, monto: 0, gOn: false, gMonto: 0, perd: false, r: null, err: '' };
+  leer('appMora', [{ idCred: p.c.id, fecha: k, opciones: { cobranza: true } }], function(r){ if (PG !== p || !p.mo || p.mo.fecha !== k) return;
+      p.mo.cargando = false; p.mo.r = r; p.mo.monto = Math.round(r.moraNeta); p.mo.gMonto = Math.round(r.gastos); p.mo.on = r.moraNeta > 0.5; pagoPintar(); },
+    function(e){ if (PG !== p || !p.mo) return; p.mo.cargando = false; p.mo.err = e.message; pagoPintar(); }); }
+function moraExtras(p){ var o = p && p.mo; if (!o || !o.r) return { mora: 0, gastos: 0, total: 0, perd: false };
+  var mo = o.on ? Math.max(0, Math.round(num(o.monto) * 100) / 100) : 0, g = o.gOn ? Math.max(0, Math.round(num(o.gMonto) * 100) / 100) : 0;
+  return { mora: mo, gastos: g, total: Math.round((mo + g) * 100) / 100, perd: !!o.perd && (o.r.moraNeta - mo) > 0.5 }; }
+function moraPagoHtml(p){ var o = p.mo; if (!o) return '';
+  if (o.cargando) return '<h2 class="sec">Moratorio y cobranza</h2>' + cargando('Calculando el moratorio…');
+  if (o.err) return '<div class="aviso a">No pude calcular el moratorio: ' + esc(o.err) + '</div>';
+  var r = o.r; if (!(r.moraNeta > 0.5) && !(r.gastos > 0.5)) return '';
+  var inp = function(id, v, on, k){ return '<input id="' + id + '" type="number" inputmode="decimal" value="' + (on ? esc(v) : '') + '" placeholder="0" style="width:100px;border:1px solid var(--ln);border-radius:10px;padding:8px;text-align:right;background:var(--sf);" oninput="PG.mo.' + k + '=this.value;moraPagoAviso();pagoResumen()">'; };
+  var ck = function(k, on){ return '<input type="checkbox"' + (on ? ' checked' : '') + ' onchange="PG.mo.' + k + '=this.checked;pagoPintar()" style="width:22px;height:22px;accent-color:var(--ac);flex:none;">'; };
+  var ven = (r.det || []).filter(function(d){ return d.estado === 'VENCIDA'; });
+  var h = '<h2 class="sec">Moratorio y cobranza</h2><div class="msg">' +
+    '<div class="f" style="cursor:default;gap:10px;border:0;">' + ck('on', o.on) + '<div class="tx"><div class="nm" style="white-space:normal;">Moratorio ' + r.tasa + '% mensual</div><div class="dt">' + (ven.length ? ven.map(function(d){ return '#' + d.num + ' ' + d.dias + 'd'; }).join(', ') + ' · ' : '') + 'calculado ' + m(r.moraNeta) + '</div></div>' + inp('pMora', o.monto, o.on, 'monto') + '</div>' +
+    (r.gastos > 0.5 ? '<div class="f" style="cursor:default;gap:10px;border:0;">' + ck('gOn', o.gOn) + '<div class="tx"><div class="nm" style="white-space:normal;">Gastos de cobranza</div><div class="dt">' + r.cobranzaPct + '% sobre lo vencido · solo si hubo gestión</div></div>' + inp('pGas', o.gMonto, o.gOn, 'gMonto') + '</div>' : '') +
+    '<div id="pMoraAv"></div>' +
+    (p.c.modalidad !== 'GRUPAL' ? '<div style="display:flex;gap:8px;align-items:center;margin-top:8px;"><input id="pTot" type="number" inputmode="decimal" placeholder="¿Recibió un total?" style="flex:1;border:1px solid var(--ln);border-radius:10px;padding:8px;background:var(--sf);"><button class="btn bs" style="width:auto;margin:0;padding:8px 12px;" onclick="moraRepartir()">Repartir</button></div>' +
+      '<p class="mini" style="margin:4px 0 0;">Se aplica primero al moratorio, luego a gastos y el resto a la cuota (contrato, cláusula NOVENA).</p>' : '<p class="mini" style="margin:6px 0 0;">En grupales el moratorio se cobra al grupo (no se desglosa por integrante).</p>') +
+    '</div>';
+  setTimeout(moraPagoAviso, 0);
+  return h; }
+function moraPagoAviso(){ var p = PG, o = p && p.mo, el = $('pMoraAv'); if (!el || !o || !o.r) return; var mo = o.on ? num(o.monto) : 0, dif = Math.round((o.r.moraNeta - mo) * 100) / 100;
+  el.innerHTML = (o.on && mo > o.r.moraNeta + 1) ? '<div class="aviso r">Es más de lo calculado (' + m(o.r.moraNeta) + ').</div>' :
+    (dif > 0.5 ? '<label class="f" style="cursor:pointer;gap:10px;border:0;"><input type="checkbox"' + (o.perd ? ' checked' : '') + ' onchange="PG.mo.perd=this.checked;pagoResumen()" style="width:20px;height:20px;accent-color:var(--ac);flex:none;"><div class="tx"><div class="dt" style="white-space:normal;">Anotar ' + m(dif) + ' como perdonado (si no, sigue pendiente)</div></div></label>' : ''); }
+function moraRepartir(){ var p = PG, o = p.mo, i = p.info, t = num($('pTot') && $('pTot').value); if (!(t > 0) || !o || !i) return;
+  var mo = o.on ? Math.min(t, Math.round(o.r.moraNeta)) : 0; t -= mo; var g = o.gOn ? Math.min(t, Math.round(o.r.gastos)) : 0; t -= g; var cu = Math.min(t, i.falta); t -= cu;
+  o.monto = mo; o.gMonto = g; p.monto = Math.round(cu * 100) / 100; pagoPintar();
+  if (t > 0.5) alert('Sobran ' + m(t) + ': regístralos en la cuota siguiente o como aportación a capital ("Cuota + capital").'); }
+function moraPagoGuardar(){ var p = PG, i = p.info, mo = Math.round((Number(p.monto) || 0) * 100) / 100, ex = moraExtras(p);
+  if (p.fecha > hoyIso()) { alert('La fecha no puede ser futura.'); return; }
+  if (i && mo > i.falta + 0.5) return;
+  if (p.mo.on && num(p.mo.monto) > p.mo.r.moraNeta + 1) { alert('El moratorio es más de lo calculado.'); return; }
+  var ap = [], om = [];
+  if (mo > 0 && i && i.grupal) { Object.keys(p.ap).forEach(function(k){ var a = p.ap[k]; if (a.si && a.monto > 0) ap.push({ id: k, monto: a.monto }); else if (!a.si && a.debe > 0) om.push({ id: k, debe: a.debe }); });
+    if (Math.abs(ap.reduce(function(s, a){ return s + a.monto; }, 0) - mo) > 0.5) { alert('Lo de cada integrante no suma el monto.'); return; } }
+  var txt = '¿Registrar en ' + p.c.id + ' con fecha ' + fIso(p.fecha) + ' en ' + p.cuenta + '?\n' + (ex.mora > 0 ? '\n• Moratorio: ' + m(ex.mora) : '') + (ex.gastos > 0 ? '\n• Gastos de cobranza: ' + m(ex.gastos) : '') + (mo > 0 ? '\n• Cuota #' + i.num + ': ' + m(mo) : '') +
+    (ex.perd ? '\n• Perdonado de moratorio: ' + m(p.mo.r.moraNeta - ex.mora) : '') + '\n\nTotal recibido: ' + m(mo + ex.total);
+  if (!confirm(txt)) return;
+  var b = $('pBtn'); b.disabled = true; b.textContent = 'Registrando… no cierres la app';
+  escribir('appMoraCobro', [{ idCred: p.c.id, fecha: p.fecha, cuenta: p.cuenta, mora: ex.mora, gastos: ex.gastos, perdonar: ex.perd, nota: p.nota, opciones: { cobranza: ex.gastos > 0 },
+      pago: mo > 0 ? { idVencimiento: p.idVenc, monto: mo, aportaciones: ap, omisos: om } : null }],
+    function(r){ PG = null; PL = null; abrirPanel('<div class="w"><div class="big">✅ Registrado</div><div class="aviso ok">' + esc(r.resumen || '') + (r.estado ? '<br>' + esc(r.estado) : '') + (r.repetido ? '<br>(ya se había registrado: no se duplicó)' : '') + '</div><button class="btn bp" onclick="cerrarPanel();cargar()">Listo</button></div>'); },
     function(e){ b.disabled = false; pagoResumen(); alert(e.message); }, p.op); }
 
 // ---------- DISPERSAR (dentro de la app; la misma tabla de la computadora) ----------
@@ -876,7 +970,7 @@ function vProy(){
     h += '<div class="kpis" style="margin-top:4px;">' + kp('T', 'Total que entró', T2.tot, T2.n + ' pago(s)') + kp('C', 'Capital', T2.cap, pT(T2.cap)) + kp('I', 'Interés', T2.int, pT(T2.int)) + kp('M', 'Moratorio', T2.mor, pT(T2.mor)) + '</div>' +
       '<p class="mini">' + (Object.keys(cta).length ? 'Interés por cuenta: ' + Object.keys(cta).sort().map(function(k){ return esc(k) + ' ' + m(cta[k]); }).join(' · ') + '. ' : '') + (R2.n ? '<span style="color:var(--warn)">Aparte, descontado en renovaciones (no entró a caja): ' + m(R2.tot) + ' en ' + R2.n + ' pago(s), ' + m(R2.int) + ' de interés.</span> ' : '') + 'Toca un recuadro para ver sus pagos.</p>';
     if (PY.caja) { var campo = { T: 11, C: 8, I: 9, M: 10 }[PY.caja], L3 = L2.filter(function(p){ return !nc(p[12]) && p[campo] > 0.005; }).sort(function(x, y){ return y[0] - x[0] || y[campo] - x[campo]; });
-      h += '<h2 class="sec">' + ({ T: 'Pagos', C: 'Capital', I: 'Interés', M: 'Moratorio' })[PY.caja] + '<span class="n">' + L3.length + '</span></h2><table class="cu"><tr><th>Pagó</th><th>Crédito</th><th class="r">Monto</th></tr>' +
+      h += '<h2 class="sec">' + ({ T: 'Pagos', C: 'Capital', I: 'Interés', M: 'Moratorio y cobranza' })[PY.caja] + '<span class="n">' + L3.length + '</span></h2><table class="cu"><tr><th>Pagó</th><th>Crédito</th><th class="r">Monto</th></tr>' +
         L3.slice(0, 250).map(function(p){ var dd = p[1] ? Math.round((new Date(isoN(p[0]) + 'T12:00:00') - new Date(isoN(p[1]) + 'T12:00:00')) / 864e5) : 0;
           return '<tr><td>' + fdN(p[0]).slice(0, 5) + (p[1] && dd !== 0 ? '<div class="mini" style="color:' + (dd < 0 ? 'var(--ac)' : 'var(--bad)') + '">' + Math.abs(dd) + ' d ' + (dd < 0 ? 'antes' : 'tarde') + '</div>' : '') + '</td><td>' + lnk(p[2]) + '<div class="mini">' + esc(corto(p[3])) + ' · ' + esc(p[12]) + ' · ' + esc(String(p[13]).toLowerCase()) + '</div></td><td class="r"><b>' + m(p[campo]) + '</b></td></tr>'; }).join('') +
         (L3.length > 250 ? '<tr><td colspan="3" class="mini">Se muestran 250 de ' + L3.length + '.</td></tr>' : '') + '<tr><td colspan="2"><b>Total</b></td><td class="r"><b>' + m(L3.reduce(function(s, p){ return s + p[campo]; }, 0)) + '</b></td></tr></table>'; }
