@@ -18,6 +18,10 @@
   .w{max-width:640px;margin:0 auto;padding:14px 16px 96px;}
   h1,h2,h3{margin:0;font-weight:500;} button,input{font:inherit;color:inherit;}
   .top{display:flex;justify-content:space-between;align-items:flex-end;gap:10px;margin-bottom:12px;}
+  .abop{display:flex;gap:10px;align-items:flex-start;border:2px solid var(--ln);border-radius:12px;padding:10px 11px;margin-bottom:8px;cursor:pointer;background:var(--sf);} .abop.on{border-color:var(--ac);background:var(--acs);}
+  .abop i{flex:0 0 18px;height:18px;border-radius:50%;border:2px solid var(--mu);margin-top:1px;box-sizing:border-box;} .abop.on i{border:5px solid var(--ac);}
+  .abop .x{flex:1;min-width:0;} .abop .x b{display:block;font-size:14px;} .abop .x > span{display:block;color:var(--mu);font-size:12px;line-height:1.35;} .abop .mm{font-weight:700;font-size:16px;white-space:nowrap;text-align:right;font-variant-numeric:tabular-nums;} .abop .mm small{display:block;font-weight:400;font-size:11px;color:var(--mu);}
+  .abtag{display:inline-block;background:var(--ac);color:var(--sf);font-size:10px;border-radius:8px;padding:1px 7px;margin-left:5px;vertical-align:middle;font-weight:600;} table.cu tr.cur td{background:var(--acs);}
   .marca{font-family:Fraunces,serif;font-size:21px;color:var(--ac);} .fecha{font-size:12.5px;color:var(--mu);}
   .yo{font-size:12px;font-weight:700;background:var(--acs);color:var(--ac2);border-radius:99px;padding:3px 10px;border:0;}
   .kpis{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
@@ -418,7 +422,7 @@ function pagoPintar(){ var p = PG, c = p.c, i = p.info;
   var ind = c.modalidad !== 'GRUPAL';   // 15/11/2026: igual que la computadora: solo cuota · cuota + capital · solo capital (individuales)
   if (ind) h += '<h2 class="sec">¿Qué es?</h2><div class="seg3">' + [['cuota','Solo cuota'],['capital','Cuota + capital'],['solo','Solo capital']].map(function(x){ return '<button class="' + (p.tipo === x[0] ? 'on' : '') + '" onclick="pagoTipo(\'' + x[0] + '\')">' + x[1] + '</button>'; }).join('') + '</div>';
   if (ind && p.tipo === 'solo') { var ven = p.cuotas.filter(function(q){ return q.vencida && q.falta > 2; });
-    h += '<div class="aviso ok"><b>Solo aportación:</b> no paga ninguna cuota, solo baja su capital. Si llega a mitad del periodo, el pago que sigue se queda igual y baja desde el siguiente.</div>' +
+    h += '<div class="aviso ok"><b>Solo aportación:</b> no paga ninguna cuota, solo baja su capital. Al confirmar eliges cómo se cobra la cuota que está corriendo: mes completo (contrato), por días o como si fuera al inicio.</div>' +
       (ven.length ? '<div class="aviso a">⚠️ Tiene cuota(s) vencida(s) sin pagar: ' + ven.map(function(q){ return '#' + q.num + ' (' + m(q.falta) + ')'; }).join(', ') + '. Lo normal es cubrir primero lo vencido (usa "Cuota + capital").</div>' : '') +
       '<label class="fld">Aportación a capital<input id="pApC" type="number" inputmode="decimal" value="' + esc(p.apC) + '" oninput="PG.apC=this.value;pagoResumen()" style="font-size:18px;"></label>' + pagoComunes(p);
     abrirPanel(h + '</div>'); pagoResumen(); return; }
@@ -451,7 +455,7 @@ function pagoTipo(t){ var p = PG; if (p.tipo === t) return; p.tipo = t; if (t ==
 function pagoSobranteCap(){ var p = PG; p.apC = String(Math.round((Number(p.monto) - p.info.falta) * 100) / 100); p.monto = p.info.falta; p.tipo = 'capital'; pagoPintar(); }
 // 15/11/2026: aportación a capital — primero la simulación (cómo quedan las cuotas), luego se registra. Mismo cálculo de la computadora.
 function pagoAbonoDatos(){ var p = PG, solo = p.tipo === 'solo', cu = solo ? 0 : Math.round((Number(p.monto) || 0) * 100) / 100;
-  return { idCred: p.c.id, montoCuota: cu, montoAportacion: Math.round(num(p.apC) * 100) / 100, idVencimiento: cu > 0 ? p.idVenc : '', fecha: p.fecha, cuenta: p.cuenta, nota: p.nota }; }
+  return { idCred: p.c.id, montoCuota: cu, montoAportacion: Math.round(num(p.apC) * 100) / 100, idVencimiento: cu > 0 ? p.idVenc : '', fecha: p.fecha, cuenta: p.cuenta, nota: p.nota, modo: p.abSel || 'COMPLETO' }; }
 function pagoAbono(){ var p = PG, x = pagoAbonoDatos(); if (!(x.montoAportacion > 0)) { alert('Escribe la aportación a capital.'); return; }
   if (p.fecha > hoyIso()) { alert('La fecha no puede ser futura.'); return; }
   var venA = p.cuotas.filter(function(q){ return q.vencida && q.falta > 2; });   // igual que la computadora: si hay vencidas y todo va a capital, se pregunta
@@ -460,16 +464,26 @@ function pagoAbono(){ var p = PG, x = pagoAbonoDatos(); if (!(x.montoAportacion 
   var b = $('pBtn'); b.disabled = true; b.textContent = 'Calculando cómo quedan las cuotas…';
   leer('appAbonoPrevia', [x], function(sim){ if (PG !== p) return; pagoResumen();
       if (!sim || !sim.ok) { alert((sim && sim.liquida) ? sim.mensaje + '\n\nEso ya es una liquidación: hazla en "💰 Liquidar crédito" de la computadora.' : 'No se puede registrar: ' + ((sim && sim.mensaje) || 'error al simular.')); return; }
-      var h = '<b>' + esc(p.c.id) + ' · ' + esc(corto(p.c.nombre)) + '</b><div class="msg" style="margin-top:8px;">' + (x.montoCuota > 0 ? '<div class="dato"><span>Pago de la cuota #' + p.info.num + '</span><span>' + m(x.montoCuota) + '</span></div>' : '') +
-        '<div class="dato"><span>Aportación a capital</span><span>' + m(x.montoAportacion) + '</span></div><div class="dato"><span>Total · ' + esc(x.cuenta) + ' · ' + fIso(x.fecha) + '</span><b>' + m(x.montoCuota + x.montoAportacion) + '</b></div>' +
-        '<div class="dato" style="border:0;"><span>' + (sim.tipo === 'SIMPLE' ? 'Capital' : 'Saldo') + '</span><b>' + m(sim.saldoAntes) + ' → <span style="color:var(--ac)">' + m(sim.saldoDespues) + '</span></b></div></div>' +
-        '<h2 class="sec">Así quedan sus cuotas</h2><table class="cu"><tr><th>#</th><th>Vence</th><th class="r">Antes</th><th class="r">Después</th></tr>' + (sim.cambios || []).slice(0, 8).map(function(c){ return '<tr><td>' + c.num + '</td><td>' + esc(c.fecha) + '</td><td class="r">' + m(c.antes) + '</td><td class="r"><b>' + m(c.despues) + '</b></td></tr>'; }).join('') + ((sim.cambios || []).length > 8 ? '<tr><td colspan="4" class="mini">… y ' + (sim.cambios.length - 8) + ' más</td></tr>' : '') + '</table>' +
-        (sim.tipo === 'SIMPLE' ? '<p class="mini">El capital se sigue pagando completo en la última cuota.</p>' : '') +
-        (sim.respetadaPeriodo ? '<div class="aviso ok">ℹ️ La cuota ' + esc(sim.respetadaPeriodo) + ' se queda igual: la aportación llegó a mitad de su periodo. Baja a partir de la siguiente.</div>' : '') +
-        ((sim.vencidasSinPagar || []).length ? '<div class="aviso a">⚠️ Cuota(s) ' + esc(sim.vencidasSinPagar.join(', ')) + ' ya vencida(s) sin pagar: conservan su monto de antes.</div>' : '') +
-        '<button class="btn bp" id="abOk" onclick="pagoAbonoOk()">Confirmar y registrar</button><button class="btn bs" onclick="cerrarModal()">Regresar</button>';
-      abrirModal(h); },
+      p.abSim = sim; p.abSel = sim.modo || 'COMPLETO'; pagoAbonoModal(); },
     function(e){ if (PG !== p) return; pagoResumen(); alert(e.message); }); }
+// 17/11/2026: las 3 formas de cobrar la cuota que corre (mes completo = contrato · por días · como si fuera al inicio)
+var MODOS_AB = [['COMPLETO', 'Mes completo', 1], ['PRORRATEO', 'Por días', 0], ['INICIO', 'Como si fuera al inicio', 0]];
+function pagoAbonoModal(){ var p = PG, x = pagoAbonoDatos(), sim = p.abSim, ec = sim.enCurso, op = sim.opciones || {}, sel = p.abSel;
+  var cam = (op[sel] && op[sel].cambios) || sim.cambios || [];
+  var mts = MODOS_AB.map(function(k){ return op[k[0]] ? op[k[0]].enCurso : null; }), iguales = !ec || mts.every(function(v){ return v === mts[0]; });
+  var desc = ec ? { COMPLETO: 'Se cobra completa; baja desde la cuota siguiente', PRORRATEO: ec.diasDentro + ' días sobre ' + m(sim.saldoAntes) + ' + ' + ec.diasDespues + ' días sobre ' + m(sim.saldoDespues), INICIO: 'Toda la cuota sobre ' + m(sim.saldoDespues) } : {};
+  var h = '<b>' + esc(p.c.id) + ' · ' + esc(corto(p.c.nombre)) + '</b><div class="msg" style="margin-top:8px;">' + (x.montoCuota > 0 ? '<div class="dato"><span>Pago de la cuota #' + p.info.num + '</span><span>' + m(x.montoCuota) + '</span></div>' : '') +
+    '<div class="dato"><span>Aportación a capital</span><span>' + m(x.montoAportacion) + '</span></div><div class="dato"><span>Total · ' + esc(x.cuenta) + ' · ' + fIso(x.fecha) + '</span><b>' + m(x.montoCuota + x.montoAportacion) + '</b></div>' +
+    '<div class="dato" style="border:0;"><span>' + (sim.tipo === 'SIMPLE' ? 'Capital' : 'Saldo') + '</span><b>' + m(sim.saldoAntes) + ' → <span style="color:var(--ac)">' + m(sim.saldoDespues) + '</span></b></div></div>';
+  if (ec && !iguales) {
+    h += '<h2 class="sec">¿Cómo se cobra la cuota ' + esc(ec.num) + ' (vence ' + esc(String(ec.vence).slice(0, 5)) + ')?</h2>' +
+      MODOS_AB.map(function(k){ var o = op[k[0]]; if (!o) return ''; return '<div class="abop' + (sel === k[0] ? ' on' : '') + '" onclick="PG.abSel=\'' + k[0] + '\';pagoAbonoModal()"><i></i><div class="x"><b>' + k[1] + (k[2] ? '<span class="abtag">contrato</span>' : '') + '</b><span>' + esc(desc[k[0]]) + '</span></div><div class="mm">' + m(o.enCurso) + '<small>quedan ' + m(o.total) + '</small></div></div>'; }).join('');
+  } else if (ec) h += '<div class="aviso ok">La aportación cuenta completa desde la cuota ' + esc(ec.num) + '.</div>';
+  h += '<h2 class="sec">Así quedan sus cuotas</h2><table class="cu"><tr><th>#</th><th>Vence</th><th class="r">Antes</th><th class="r">Después</th></tr>' + cam.slice(0, 8).map(function(c){ return '<tr' + (ec && String(c.num) === String(ec.num) ? ' class="cur"' : '') + '><td>' + c.num + '</td><td>' + esc(c.fecha) + '</td><td class="r">' + m(c.antes) + '</td><td class="r"><b>' + m(c.despues) + '</b></td></tr>'; }).join('') + (cam.length > 8 ? '<tr><td colspan="4" class="mini">… y ' + (cam.length - 8) + ' más</td></tr>' : '') + '</table>' +
+    (sim.tipo === 'SIMPLE' ? '<p class="mini">El capital se sigue pagando completo en la última cuota.</p>' : '') +
+    ((sim.vencidasSinPagar || []).length ? '<div class="aviso a">⚠️ Cuota(s) ' + esc(sim.vencidasSinPagar.join(', ')) + ' ya vencida(s) sin pagar: conservan su monto de antes.</div>' : '') +
+    '<button class="btn bp" id="abOk" onclick="pagoAbonoOk()">Confirmar y registrar</button><button class="btn bs" onclick="cerrarModal()">Regresar</button>';
+  var mb = document.querySelector('#modal .mbox'), st = mb ? mb.scrollTop : 0; abrirModal(h); mb = document.querySelector('#modal .mbox'); if (mb && st) mb.scrollTop = st; }
 function pagoAbonoOk(){ var p = PG, x = pagoAbonoDatos(), b = $('abOk'); b.disabled = true; b.textContent = 'Registrando y recalculando… no cierres la app';
   escribir('appAbono', [x], function(r){ cerrarModal(); PG = null; PL = null; abrirPanel('<div class="w"><div class="big">✅ Registrado</div><div class="aviso ok">' + esc(r.resumen || '') + '<br>' + esc(r.estado || '') + '</div>' + (r.nota ? '<p class="mini">' + esc(r.nota) + '</p>' : '') + (r.repetido ? '<div class="aviso ok">(ya se había registrado: no se duplicó)</div>' : '') + '<button class="btn bp" onclick="cerrarPanel();cargar()">Listo</button></div>'); },
     function(e){ b.disabled = false; b.textContent = 'Confirmar y registrar'; alert(e.message); }, p.op); }
