@@ -38,6 +38,8 @@
   h2.sec{font-family:Fraunces,serif;font-size:17px;margin:18px 0 8px;display:flex;justify-content:space-between;align-items:center;gap:8px;}
   .n{font-family:Figtree;font-size:11px;font-weight:700;background:var(--acs);color:var(--ac2);padding:1px 8px;border-radius:99px;} .n.r{background:var(--bads);color:var(--bad);}
   .f{background:var(--sf);border:1px solid var(--ln);border-radius:13px;padding:9px 11px;display:flex;gap:9px;align-items:center;margin-bottom:6px;width:100%;text-align:left;cursor:pointer;}
+  .lbd{background:var(--sf);border:1px solid var(--ln);border-radius:12px;margin-bottom:8px;overflow:hidden;} .lbd>summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;gap:8px;padding:10px 12px;font-size:13.5px;} .lbd>summary::-webkit-details-marker,.lbg>summary::-webkit-details-marker{display:none;} .lbd>summary .mini{display:block;margin:0;}
+  .lbg{border-top:1px solid var(--ln);} .lbg>summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;padding:9px 12px;font-size:13px;} .lbr{display:flex;align-items:center;gap:6px;padding:7px 12px 7px 22px;font-size:12.5px;border-top:1px dashed var(--ln);}
   .av{width:34px;height:34px;border-radius:50%;background:var(--acs);color:var(--ac2);font-weight:700;font-size:12px;display:grid;place-items:center;flex:none;} .av.r{background:var(--bads);color:var(--bad);}
   .tx{flex:1;min-width:0;} .nm{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;} .dt{font-size:12px;color:var(--mu);}
   .mt{font-weight:700;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;} .mt small{display:block;font-weight:600;color:var(--bad);font-size:11px;}
@@ -311,13 +313,13 @@ function ficha(id){ var c = credDe(id); if (!c) return;
   var ab = c.cuotas.filter(function(q){ return q.falta > 0.5; }), pg = c.cuotas.filter(function(q){ return !(q.falta > 0.5); });
   if (adm()) h += '<div class="acc" style="margin-top:10px;">' + (!c.porDispersar && ab.length ? '<button onclick="pagoAbrir(\'' + c.id + '\')"><b>💵</b>Registrar pago</button>' : '') + (c.porDispersar ? '<button onclick="dspAbrir(\'' + c.id + '\')"><b>💸</b>Dispersar</button>' : '') +
     '<button onclick="mcAbrir(\'' + c.id + '\')"><b>✏️</b>Modificar</button><button onclick="repAbrir(\'' + c.id + '\')"><b>📄</b>Reporte</button>' +
-    (!c.porDispersar ? '<button onclick="moraAbrir(\'' + c.id + '\')"><b>⚖️</b>Moratorios</button>' : '') + '</div>';
-  else h += '<button class="btn bs" onclick="repAbrir(\'' + c.id + '\')">📄 Reporte del crédito</button>' + (c.vencido > 0 && !c.porDispersar ? '<button class="btn bs" onclick="moraAbrir(\'' + c.id + '\')">⚖️ Moratorios y cobranza</button>' : '');
+    (!c.porDispersar ? '<button onclick="moraAbrir(\'' + c.id + '\')"><b>⚖️</b>Moratorios</button>' : '') + (!c.porDispersar && c.modalidad !== 'GRUPAL' ? '<button onclick="ecAbrirApp(\'' + c.id + '\',\'\')"><b>📄</b>Estado de cuenta</button>' : '') + '</div>';
+  else h += '<button class="btn bs" onclick="repAbrir(\'' + c.id + '\')">📄 Reporte del crédito</button>' + (!c.porDispersar && c.modalidad !== 'GRUPAL' ? '<button class="btn bs" onclick="ecAbrirApp(\'' + c.id + '\',\'\')">🧾 Estado de cuenta</button>' : '') + (c.vencido > 0 && !c.porDispersar ? '<button class="btn bs" onclick="moraAbrir(\'' + c.id + '\')">⚖️ Moratorios y cobranza</button>' : '');
   if (c.modalidad === 'GRUPAL' && c.integrantes.length) {
-    h += '<h2 class="sec">Integrantes<span class="n">' + c.integrantes.length + '</span></h2>' + (c.sinDesglose ? '<div class="aviso a">Hay pagos sin desglose por persona: lo que debe cada quien puede no estar completo.</div>' : '');
+    h += '<h2 class="sec">Integrantes<span class="n">' + c.integrantes.length + '</span></h2><div class="mini" style="margin:-4px 0 6px;">Toca a alguien para ver su estado de cuenta (imagen para entregar).</div>' + (c.sinDesglose ? '<div class="aviso a">Hay pagos sin desglose por persona: lo que debe cada quien puede no estar completo.</div>' : '');
     h += c.integrantes.map(function(i){ var txt = i.debe > 0 ? 'Hola ' + primer(i.nombre) + ', le saluda Inversiones Conscientes. En el grupo ' + c.id + ' tiene pendiente ' + m(i.debe) + ' de su aportación semanal (' + m(i.pago) + '). ¿Nos confirma cuándo lo cubre? Concepto: PAGO PRESTAMO ' + c.id.replace(/\D/g, '').slice(-4) + '.' : '';
-      return '<div class="f" style="cursor:default;"><div class="av' + (i.debe > 0 ? ' r' : '') + '">' + esc(ini(i.nombre)) + '</div><div class="tx"><div class="nm">' + esc(corto(i.nombre)) + (i.ancla ? ' <span class="chip" style="margin:0;">ancla</span>' : '') + '</div><div class="dt">aporta ' + m(i.pago) + ' por semana' + (i.monto ? ' · le tocó ' + m(i.monto) : '') + '</div></div>' +
-        '<div class="mt">' + (i.debe > 0 ? '<span style="color:var(--bad)">debe ' + m(i.debe) + '</span>' : '<span style="color:var(--ac)">✓</span>') + '</div>' + (i.tel ? '<a class="wa" target="_blank" href="' + wa(i.tel, txt) + '">WA</a>' : '') + '</div>'; }).join('');
+      return '<div class="f" onclick="ecAbrirApp(\'' + esc(c.id) + '\',\'' + esc(i.id || '') + '\')"><div class="av' + (i.debe > 0 ? ' r' : '') + '">' + esc(ini(i.nombre)) + '</div><div class="tx"><div class="nm">' + esc(corto(i.nombre)) + (i.ancla ? ' <span class="chip" style="margin:0;">ancla</span>' : '') + '</div><div class="dt">aporta ' + m(i.pago) + ' por semana' + (i.monto ? ' · le tocó ' + m(i.monto) : '') + ' · <span style="color:var(--ac)">ver estado de cuenta ›</span></div></div>' +
+        '<div class="mt">' + (i.debe > 0 ? '<span style="color:var(--bad)">debe ' + m(i.debe) + '</span>' : '<span style="color:var(--ac)">✓</span>') + '</div>' + (i.tel ? '<a class="wa" target="_blank" onclick="event.stopPropagation()" href="' + wa(i.tel, txt) + '">WA</a>' : '') + '</div>'; }).join('');
   }
   if (c.modalidad !== 'GRUPAL' && (c.avales || []).length) h += '<h2 class="sec">Avales<span class="n">' + c.avales.length + '</span></h2>' + c.avales.map(function(a){ return '<div class="f" style="cursor:default;"><div class="av">' + esc(ini(a.nombre)) + '</div><div class="tx"><div class="nm">' + esc(corto(a.nombre)) + '</div><div class="dt">' + (a.tel ? esc(a.tel) : 'sin teléfono') + '</div></div>' + (a.tel ? '<a class="wa" target="_blank" href="' + wa(a.tel) + '">WA</a>' : '') + '</div>'; }).join('');
   h += '<h2 class="sec">Cuotas<span class="n">' + pg.length + ' de ' + c.cuotas.length + ' pagadas</span></h2><table class="cu"><tr><th>#</th><th>Vence</th><th class="r">Total</th><th class="r">Falta</th></tr>' +
@@ -886,12 +888,43 @@ function vCaja(){ cajaCargar(false); var C = (CX && CX.caja && CX.caja.activa) ?
   h += '<div class="acc" style="margin-top:14px;grid-template-columns:1fr 1fr;"><button onclick="movAbrir()"><b>＋</b>Registrar movimiento</button><button onclick="ir(\'movs\')"><b>🔁</b>Ver movimientos</button></div><button class="btn bs" onclick="ir(\'proy\')">📈 Proyectado vs cobrado</button>';
   $('app').innerHTML = h + '</div>'; }
 var MT = { GASTO: 'Gasto', TRASPASO: 'Traspaso', APORTACION: 'Aportación', RETIRO: 'Devolución de capital', RENDIMIENTO: 'Pago de rendimiento', REINVERSION: 'Intereses → capital', AJUSTE: 'Ajuste', CONTEO: 'Conteo' };
+// 17/11/2026: movimientos por cuenta, día por día. Cada día cerrado (el más reciente abierto); adentro, agrupado en
+// Pagos / Entregas / Caja y cada grupo se abre con un toque. Cada pago dice quién (nombre y apellido), no solo el crédito.
+var LB = { cuenta: 'BBVA', dias: 7, r: null, err: '', cargando: false, q: '' };
+function lbCargar(){ var x = LB; x.cargando = true; x.err = '';
+  leer('appCajaLibro', [{ cuenta: x.cuenta, dias: x.dias }], function(r){ if (LB !== x) return; x.r = r; x.cargando = false; if (TAB === 'movs') vMovs(); }, function(e){ if (LB !== x) return; x.err = e.message; x.cargando = false; if (TAB === 'movs') vMovs(); }); }
+function lbCuenta(k){ LB = { cuenta: k, dias: 7, r: null, err: '', cargando: false, q: LB.q }; vMovs(); }
+function lbMas(){ LB.dias += 7; LB.r = null; vMovs(); }
+function lbBuscar(v){ LB.q = v; var el = $('lbL'); if (el) el.innerHTML = lbDias(); }
+function lbDias(){ var r = LB.r; if (!r) return ''; var q = norm(LB.q || ''), GR = [['PAGO', '💵 Pagos'], ['ENTREGA', '💸 Entregas'], ['CAJA', '🧾 Gastos, traspasos y otros']];
+  var sg = function(v){ return v > 0 ? '<span style="color:var(--ac)">+' + m(v) + '</span>' : (v < 0 ? '<span style="color:var(--bad)">' + m(v) + '</span>' : m(0)); };
+  var dias = (r.dias || []).slice().reverse(), k = 0;
+  var h = dias.map(function(d){
+    var it = (d.items || []).filter(function(x){ return !q || norm(x.txt + ' ' + (x.quienes || '')).indexOf(q) >= 0; });
+    if (q && !it.length) return '';
+    var neto = it.reduce(function(a, x){ return a + x.monto; }, 0), difC = d.conteo && Math.abs(d.conteo.dif) > 0.5, abierto = !!q || k++ === 0;
+    var gr = GR.map(function(g){ var L = it.filter(function(x){ return x.tipo === g[0]; }); if (!L.length) return '';
+      return '<details class="lbg"' + (q ? ' open' : '') + '><summary><span>' + g[1] + ' <span class="mini" style="display:inline;">· ' + L.length + '</span></span><b>' + sg(L.reduce(function(a, x){ return a + x.monto; }, 0)) + ' ▾</b></summary>' +
+        L.map(function(x){ var nom = x.quien ? '<b>' + esc(x.quien) + '</b> <span class="mini" style="display:inline;">' + esc(x.cred) + (x.nota ? ' · ' + esc(x.nota) : '') + '</span>' + (x.quienes ? '<div class="mini">' + esc(x.quienes) + '</div>' : '') : esc(x.txt);
+          return '<div class="lbr"><div style="flex:1;min-width:0;">' + nom + '</div><div style="white-space:nowrap;font-weight:700;">' + sg(x.monto) + '</div>' + (x.idMov && x.sub !== 'REINVERSION' ? '<button class="yo" style="background:var(--bads);color:var(--bad);margin-left:6px;" onclick="movBorrar(\'' + esc(x.idMov) + '\')">✕</button>' : '') + '</div>'; }).join('') + '</details>'; }).join('');
+    return '<details class="lbd"' + (abierto ? ' open' : '') + '><summary><span><b>' + esc(d.fecha) + '</b><span class="mini">' + it.length + ' movimiento(s)' + (difC ? ' · <span style="color:var(--bad)">conteo dif ' + m(d.conteo.dif) + '</span>' : '') + '</span></span><span style="text-align:right;">cerró <b>' + m(d.cierra) + '</b><span class="mini">' + sg(neto) + ' en el día ▾</span></span></summary>' +
+      (d.conteo ? '<div class="aviso ' + (difC ? 'r' : 'ok') + '" style="margin:6px 10px;">🧮 Conteo: ' + m(d.conteo.real) + ' · sistema ' + m(d.cierra) + (difC ? ' · dif ' + m(d.conteo.dif) : ' ✓') + '</div>' : '') + gr + '</details>'; }).join('');
+  if (!h) h = '<div class="vacio">' + (q ? 'Nada con “' + esc(LB.q) + '” en estos días.' : 'Sin movimientos.') + '</div>';
+  if (r.totalDias > (r.dias || []).length) h += '<button class="btn bs" onclick="lbMas()">⬇ Ver 7 días antes</button>';
+  return h; }
 function vMovs(){ cajaCargar(false); var h = '<div class="w">' + cabeza('Movimientos de caja') + '<button class="btn bp" style="margin-top:0;" onclick="movAbrir()">＋ Registrar movimiento</button>';
-  if (!CX) h += cargando('Trayendo movimientos…'); else if (CX.error) h += '<div class="aviso r">' + esc(CX.error) + '</div>';
-  else { var U = CX.ultimos || []; h += '<h2 class="sec">Últimos<span class="n">' + U.length + '</span></h2>' + (U.length ? U.map(function(x){ return '<div class="f" style="cursor:default;"><div class="tx"><div class="nm">' + esc(MT[x.tipo] || tit(x.tipo)) + (x.categoria ? ' · ' + esc(x.categoria) : '') + '</div><div class="dt">' + esc(x.fecha) + ' · ' + esc((x.origen || '') + (x.origen && x.destino ? ' → ' : '') + (x.destino || '')) + (x.bolsa ? ' · ' + esc(x.bolsa.toLowerCase()) : '') + (x.concepto ? ' · ' + esc(x.concepto) : '') + '</div></div><div class="mt">' + m(x.monto) + '</div><button class="yo" style="background:var(--bads);color:var(--bad);" onclick="movBorrar(\'' + esc(x.id) + '\')">✕</button></div>'; }).join('') : '<div class="vacio">Sin movimientos.</div>'); }
-  h += '<button class="btn bs" onclick="CX=null;vMovs()">↻ Actualizar</button>';
+  h += '<div class="seg" style="margin-top:10px;">' + ['BBVA', 'EFECTIVO', 'NU'].map(function(k){ return '<button class="' + (LB.cuenta === k ? 'on' : '') + '" onclick="lbCuenta(\'' + k + '\')">' + k + '</button>'; }).join('') + '</div>';
+  if (!LB.r && !LB.err && !LB.cargando) lbCargar();
+  if (LB.err) h += '<div class="aviso r">' + esc(LB.err) + '</div><button class="btn bs" onclick="LB.err=\'\';LB.r=null;vMovs()">Reintentar</button>';
+  else if (!LB.r) h += cargando('Trayendo los movimientos de ' + LB.cuenta + '…');
+  else { var r = LB.r;
+    h += '<div class="kpis"><div class="k"><div class="t">Saldo ' + esc(r.cuenta) + '</div><div class="v">' + m(r.saldo) + '</div><div class="s">según el sistema</div></div><div class="k"><div class="t">Interés · capital</div><div class="v" style="font-size:15px;">' + m(r.interes) + ' · ' + m(r.capital) + '</div><div class="s">apertura ' + esc(r.apertura && r.apertura.fecha || '') + '</div></div></div>' +
+      '<input class="bus" style="margin:10px 0 6px;" placeholder="Buscar nombre, CR-0030, concepto…" value="' + esc(LB.q) + '" oninput="lbBuscar(this.value)"><div id="lbL">' + lbDias() + '</div>'; }
+  if (CX && !CX.error) { var U = CX.ultimos || [];
+    h += '<details class="lbd" style="margin-top:12px;"><summary><span><b>Últimos registrados en caja</b><span class="mini">gastos, traspasos, conteos… (' + U.length + ')</span></span><span>▾</span></summary>' + (U.length ? U.map(function(x){ return '<div class="f" style="cursor:default;margin:6px;"><div class="tx"><div class="nm">' + esc(MT[x.tipo] || tit(x.tipo)) + (x.categoria ? ' · ' + esc(x.categoria) : '') + '</div><div class="dt">' + esc(x.fecha) + ' · ' + esc((x.origen || '') + (x.origen && x.destino ? ' → ' : '') + (x.destino || '')) + (x.bolsa ? ' · ' + esc(x.bolsa.toLowerCase()) : '') + (x.concepto ? ' · ' + esc(x.concepto) : '') + '</div></div><div class="mt">' + m(x.monto) + '</div><button class="yo" style="background:var(--bads);color:var(--bad);" onclick="movBorrar(\'' + esc(x.id) + '\')">✕</button></div>'; }).join('') : '<div class="vacio">Sin movimientos.</div>') + '</details>'; }
+  h += '<button class="btn bs" onclick="CX=null;LB.r=null;vMovs()">↻ Actualizar</button>';
   $('app').innerHTML = h + '</div>'; }
-function movBorrar(id){ if (!confirm('¿Eliminar el movimiento ' + id + '? Queda en el registro de eliminaciones.')) return; escribir('appCajaEliminar', [id], function(){ CX = null; cajaCargar(true); cargar(); }); }
+function movBorrar(id){ if (!confirm('¿Eliminar el movimiento ' + id + '? Queda en el registro de eliminaciones.')) return; escribir('appCajaEliminar', [id], function(){ CX = null; LB.r = null; cajaCargar(true); cargar(); }); }
 var MV = null;
 function movAbrir(){ cajaCargar(false); MV = { tipo: 'GASTO', fecha: hoyIso(), origen: 'BBVA', destino: 'EFECTIVO', monto: '', concepto: '', categoria: '', clasif: 'COMPANIA', bolsa: 'INTERES', idOrigen: '', ajuste: 'SUMA', op: nuevoOp() }; movPintar(); }
 function movPintar(){ var v = MV, t = v.tipo, ctas = ['EFECTIVO','BBVA','NU'], cats = (CX && CX.categorias) || [], pers = (CX && CX.categoriasPers) || [], ors = (CX && CX.origenes) || [];
@@ -1030,4 +1063,186 @@ document.addEventListener('click', function(e){ var d = $('drw'); if (d && e.tar
 TOKEN = leerLocal('ic_app_token');
 if (TOKEN) cargar(); else pantallaLogin();
 if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(function(){});
+/* === ESTADO DE CUENTA (17/11/2026) — mismo código en la app y en el dashboard. Sin diagonales invertidas ni comillas invertidas (va dentro de un template). === */
+var EC_R = null, EC_MODO = 'DASH';
+function ecM(n){ var r = Math.round(Number(n) || 0); return (r < 0 ? '-$' : '$') + Math.abs(r).toLocaleString('es-MX'); }
+function ecE(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]; }); }
+function ecTit(t){ return String(t || '').toLowerCase().replace(/(^|[ ])(.)/g, function(a, b, c){ return b + c.toUpperCase(); }); }
+// Renglones de la tabla: se juntan las semanas seguidas que el grupo pagó sin desglose y las que faltan por vencer
+function ecFilas(r, modo){
+  var L = [], cu = r.cuotas || [];
+  cu.forEach(function(q){
+    var x = modo === 'CAP' ? q.cap : q.dash;
+    var fila = { a: q.num, b: q.num, fecha: q.fecha, fecha2: q.fecha, pagado: q.pagado, cap: x ? x.cap : null, int: x ? x.int : null, falta: q.falta, estado: q.estado, supuesto: q.supuesto, cubierto: q.cubierto, n: 1 };
+    var u = L[L.length - 1];
+    var junta = u && ((q.estado === 'PAGADA' && u.estado === 'PAGADA' && q.supuesto && u.supuesto) || (q.estado === 'PENDIENTE' && u.estado === 'PENDIENTE'));
+    if (junta) { u.b = q.num; u.fecha2 = q.fecha; u.n++; u.pagado += q.pagado || 0; u.cap += fila.cap || 0; u.int += fila.int || 0; u.falta += q.falta || 0; }
+    else L.push(fila);
+  });
+  (r.adicional || []).forEach(function(a){ L.push({ aport: true, fecha: a.fecha, pagado: a.monto, cap: a.monto, int: 0, falta: 0, estado: 'APORTACION', n: 1 }); });
+  return L;
+}
+function ecEtiqueta(f, grupal){
+  if (f.aport) return 'Aportación a capital';
+  var pre = grupal ? '#' : 'Pago ';
+  return f.a === f.b ? pre + f.a : pre + f.a + '–' + (grupal ? '#' : '') + f.b;
+}
+function ecFechaTxt(f){ var c = function(s){ return String(s || '').slice(0, 5); }; return f.n > 1 ? c(f.fecha) + ' – ' + c(f.fecha2) : c(f.fecha); }
+function ecDatos(r, modo){
+  var M = r.modos[modo] || r.modos.DASH;
+  var capPend = Math.max(0, r.monto - M.cap);
+  var avance = r.aPagar > 0.5 ? Math.min(100, Math.round(r.cobrado / r.aPagar * 100)) : 0;
+  var mora = r.mora && r.mora.monto > 0.5 ? r.mora.monto : 0;
+  var notas = [];
+  if (modo === 'CAP') notas.push('Reparto: todo lo pagado va primero a capital (hasta ' + ecM(r.monto) + ') y lo demás a interés.');
+  else notas.push('Reparto como el dashboard: lo pagado de cada cuota cubre primero su capital y luego su interés.');
+  if (r.debeHoy > 0.5) notas.push('Vencido: ' + r.cuotas.filter(function(q){ return q.vencida && q.falta > 0.5; }).map(function(q){ return (r.cred.grupal ? '#' : 'pago ') + q.num + ' (' + q.fecha.slice(0, 5) + ')'; }).join(', ') + (mora ? '. Moratorio a hoy: ' + ecM(mora) + (r.mora.estimado ? ' (estimado)' : '') + '.' : '.'));
+  if (r.mora && r.mora.error) notas.push('No se pudo calcular el moratorio: ' + r.mora.error);
+  if (r.bonif) notas.push('Semana ' + r.bonif.num + ' de bonificación (' + ecM(r.bonif.monto) + ', ' + r.bonif.fecha.slice(0, 5) + '): se condona si el grupo termina al corriente; no se suma.');
+  (r.avisos || []).forEach(function(a){ notas.push(a); });
+  return { M: M, capPend: capPend, avance: avance, mora: mora, notas: notas, filas: ecFilas(r, modo) };
+}
+// ---------- imagen (canvas, sin librerías) ----------
+function ecCanvas(r, modo){
+  var d = ecDatos(r, modo), M = d.M, W = 820, P = 32, S = 2, grupal = r.cred.grupal;
+  var cv = document.createElement('canvas'), x = cv.getContext('2d');
+  x.font = '13px Arial';
+  var envolver = function(t, ancho){ var w = String(t).split(' '), L = [], l = ''; w.forEach(function(p){ var p2 = l ? l + ' ' + p : p; if (x.measureText(p2).width > ancho && l) { L.push(l); l = p; } else l = p2; }); if (l) L.push(l); return L; };
+  var nLin = 0; d.notas.forEach(function(n){ nLin += envolver('• ' + n, W - 2 * P).length; });
+  var H = P + 92 + 18 + 104 + 18 + 40 + 40 + 34 + d.filas.length * 34 + 34 + 16 + nLin * 19 + P;
+  cv.width = W * S; cv.height = H * S; x.scale(S, S);
+  var rr = function(X, Y, w, h, rad, fill, stroke){ x.beginPath(); x.moveTo(X + rad, Y); x.arcTo(X + w, Y, X + w, Y + h, rad); x.arcTo(X + w, Y + h, X, Y + h, rad); x.arcTo(X, Y + h, X, Y, rad); x.arcTo(X, Y, X + w, Y, rad); x.closePath(); if (fill) { x.fillStyle = fill; x.fill(); } if (stroke) { x.strokeStyle = stroke; x.lineWidth = 1; x.stroke(); } };
+  var tx = function(t, X, Y, font, color, align){ x.font = font; x.fillStyle = color; x.textAlign = align || 'left'; x.fillText(t, X, Y); };
+  x.fillStyle = '#ffffff'; x.fillRect(0, 0, W, H);
+  // encabezado
+  rr(P, P, W - 2 * P, 92, 12, '#123a63');
+  tx(ecTit(r.persona.nombre), P + 22, P + 40, 'bold 25px Arial', '#ffffff');
+  var sub = grupal ? (r.persona.id + ' · Grupo ' + r.cred.id + (r.persona.ancla ? ' (ancla)' : ' (ancla: ' + ecTit(r.cred.nombre) + ')')) : (r.cred.id + ' · ' + ecTit(r.cred.tipo || 'individual') + ' · ' + ecTit(r.cred.frecuencia));
+  tx(sub + ' · Corte al ' + r.fecha, P + 22, P + 68, '14px Arial', '#dbe5f1');
+  // tarjetas
+  var y = P + 92 + 18, cw = (W - 2 * P - 36) / 4;
+  var al = r.debeHoy <= 0.5;
+  var tarj = [
+    ['Monto original', ecM(r.monto), 'Total a pagar ' + ecM(r.aPagar), '', '#eef3f9', '#1d2433'],
+    ['Total cobrado', ecM(r.cobrado), 'Interés ' + ecM(M.int), '', '#e9f7ee', '#18794e'],
+    ['Fue a capital', ecM(M.cap), M.cap >= r.monto - 0.5 ? 'Capital 100% recuperado' : 'de ' + ecM(r.monto) + ' prestados', '', '#eaf2ff', '#1f5fbf'],
+    al ? ['Debe hoy', 'Al corriente', r.porVencer > 0.5 ? 'Por vencer ' + ecM(r.porVencer) : 'Sin saldo pendiente', '', '#e9f7ee', '#18794e']
+       : ['Debe hoy', ecM(r.debeHoy), 'Capital ' + ecM(M.venCap) + ' · Interés ' + ecM(M.venInt), d.mora ? '+ moratorio ' + ecM(d.mora) : (r.porVencer > 0.5 ? 'Por vencer ' + ecM(r.porVencer) : ''), '#fdecec', '#c0392b']
+  ];
+  tarj.forEach(function(t, i){ var X = P + i * (cw + 12); rr(X, y, cw, 104, 10, t[4], '#e1e6ee');
+    tx(t[0], X + 14, y + 24, 'bold 13px Arial', '#5a6577'); tx(t[1], X + 14, y + 54, 'bold ' + (t[1].length > 10 ? 20 : 24) + 'px Arial', t[5]);
+    tx(t[2], X + 14, y + 76, '12px Arial', '#5a6577'); if (t[3]) tx(t[3], X + 14, y + 93, '12px Arial', '#5a6577'); });
+  y += 104 + 18;
+  // avance
+  tx('Avance de pago', P, y + 14, '13px Arial', '#5a6577'); tx(d.avance + '% · ' + ecM(r.cobrado) + ' de ' + ecM(r.aPagar), W - P, y + 14, 'bold 13px Arial', '#5a6577', 'right');
+  rr(P, y + 22, W - 2 * P, 14, 7, '#e6e9ef'); if (d.avance > 0) rr(P, y + 22, Math.max(14, (W - 2 * P) * d.avance / 100), 14, 7, '#2e9e63');
+  y += 40;
+  tx(grupal ? 'Detalle por semana' : 'Detalle por pago', P, y + 26, 'bold 17px Arial', '#123a63'); y += 40;
+  // tabla
+  var col = [P + 12, P + 300, P + 410, P + 520, P + 630, W - P - 12], heads = [grupal ? 'Semanas' : 'Pagos', 'Pagó', 'Capital', 'Interés', '', 'Le falta'];
+  rr(P, y, W - 2 * P, 34, 0, '#123a63');
+  heads.forEach(function(h, i){ if (h) tx(h, i === 0 ? col[0] : (i === 5 ? col[5] : col[i] + 90), y + 22, 'bold 14px Arial', '#ffffff', i === 0 ? 'left' : 'right'); });
+  y += 34;
+  var tP = 0, tC = 0, tI = 0, tF = 0;
+  d.filas.forEach(function(f){
+    var bg = f.estado === 'VENCIDA' ? '#fdecec' : (f.estado === 'PARCIAL' ? '#fff4e5' : (f.estado === 'BONIF_PENDIENTE' || f.estado === 'BONIFICADA' || f.estado === 'SIN_DESGLOSE' ? '#f5f6f8' : '#ffffff'));
+    x.fillStyle = bg; x.fillRect(P, y, W - 2 * P, 34); x.fillStyle = '#e6e9ef'; x.fillRect(P, y + 33, W - 2 * P, 1);
+    var et = ecEtiqueta(f, grupal) + ' (' + ecFechaTxt(f) + ')';
+    if (f.estado === 'BONIF_PENDIENTE') et += ' · bonificación'; if (f.estado === 'BONIFICADA') et += ' · bonificada'; if (f.estado === 'SIN_DESGLOSE') et += ' · sin desglose';
+    tx(et, col[0], y + 22, '14px Arial', '#1d2433');
+    var raya = '—', v = function(n){ return n === null || n === undefined ? '?' : (Math.abs(n) < 0.5 ? raya : ecM(n)); };
+    tx(f.estado === 'BONIF_PENDIENTE' ? raya : v(f.pagado), col[1] + 90, y + 22, '14px Arial', '#1d2433', 'right');
+    tx(v(f.cap), col[2] + 90, y + 22, '14px Arial', '#1d2433', 'right');
+    tx(v(f.int), col[3] + 90, y + 22, '14px Arial', '#1d2433', 'right');
+    var fa = f.falta > 0.5 ? ecM(f.falta) : (f.falta === null ? '?' : raya);
+    tx(fa, col[5], y + 22, (f.falta > 0.5 ? 'bold ' : '') + '14px Arial', f.falta > 0.5 ? '#c0392b' : '#1d2433', 'right');
+    if (f.pagado) tP += f.pagado; if (f.cap) tC += f.cap; if (f.int) tI += f.int; if (f.falta > 0.5) tF += f.falta;
+    y += 34;
+  });
+  if (modo === 'CAP') { tC = M.cap; tI = M.int; }
+  x.fillStyle = '#f3f5f8'; x.fillRect(P, y, W - 2 * P, 34);
+  tx('Total', col[0], y + 22, 'bold 14px Arial', '#1d2433'); tx(ecM(tP), col[1] + 90, y + 22, 'bold 14px Arial', '#1d2433', 'right'); tx(ecM(tC), col[2] + 90, y + 22, 'bold 14px Arial', '#1d2433', 'right'); tx(ecM(tI), col[3] + 90, y + 22, 'bold 14px Arial', '#1d2433', 'right');
+  tx(tF > 0.5 ? ecM(tF) : '—', col[5], y + 22, 'bold 14px Arial', tF > 0.5 ? '#c0392b' : '#1d2433', 'right');
+  y += 34 + 16;
+  x.fillStyle = '#e6e9ef'; x.fillRect(P, y - 6, W - 2 * P, 1);
+  x.font = '13px Arial';
+  d.notas.forEach(function(n){ envolver('• ' + n, W - 2 * P).forEach(function(l){ tx(l, P, y + 12, '13px Arial', '#5a6577'); y += 19; }); });
+  return cv;
+}
+// Guardar / compartir la imagen. En el celular abre "compartir" (ahí se elige WhatsApp); en la computadora la descarga.
+function ecImagen(r, modo, alTerminar){
+  var cv = ecCanvas(r, modo), nombre = 'Estado_cuenta_' + String(r.persona.corto || r.cred.id).split(' ').join('_') + '_' + r.cred.id + '.png';
+  var url = cv.toDataURL('image/png');
+  var listo = function(msg){ if (alTerminar) alTerminar(url, msg); };
+  cv.toBlob(function(b){
+    try {
+      var file = (typeof File === 'function') ? new File([b], nombre, { type: 'image/png' }) : null;
+      var tactil = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+      if (tactil && file && navigator.canShare && navigator.canShare({ files: [file] })) {
+        navigator.share({ files: [file], title: 'Estado de cuenta' }).then(function(){ listo(''); }).catch(function(){ listo(''); });
+        return;
+      }
+    } catch (e) {}
+    try { var a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = nombre; document.body.appendChild(a); a.click(); setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 4000); listo('Se descargó ' + nombre + '. Si no aparece, guarda la imagen de abajo (clic derecho o mantener presionado).'); }
+    catch (e2) { listo('Guarda la imagen de abajo (clic derecho o mantener presionado).'); }
+  }, 'image/png');
+}
+function ecWa(r){ var t = String(r.persona.tel || '').split('').filter(function(c){ return c >= '0' && c <= '9'; }).join('').slice(-10);
+  return (t.length === 10 ? 'https://wa.me/52' + t : 'https://wa.me/') + '?text=' + encodeURIComponent(r.mensaje || ''); }
+// ---------- la vista (misma en la app y en el dashboard). La página pone un <div id="ecBox"> y llama ecCargado(r) ----------
+var EC_CSS = '.ec{font-family:Arial,Helvetica,sans-serif;color:#1d2433;background:#fff;border-radius:12px;max-width:820px;margin:0 auto;}' +
+  '.ec .ec-hd{background:#123a63;color:#fff;border-radius:12px;padding:14px 16px;}.ec .ec-hd b{display:block;font-size:19px;}.ec .ec-hd span{font-size:12.5px;opacity:.85;}' +
+  '.ec .ec-seg{display:flex;background:#e6eaf0;border-radius:10px;padding:3px;margin:10px 0;}.ec .ec-seg button{flex:1;border:0;background:none;font-size:12.5px;padding:7px 4px;border-radius:8px;color:#5a6577;cursor:pointer;}.ec .ec-seg button.on{background:#fff;color:#123a63;font-weight:700;box-shadow:0 1px 2px rgba(0,0,0,.15);}' +
+  '.ec .ec-k4{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}@media(max-width:620px){.ec .ec-k4{grid-template-columns:1fr 1fr;}}' +
+  '.ec .ec-k{border:1px solid #e1e6ee;border-radius:10px;padding:9px 10px;}.ec .ec-k i{display:block;font-style:normal;font-size:11.5px;color:#5a6577;font-weight:700;}.ec .ec-k b{display:block;font-size:20px;}.ec .ec-k small{display:block;font-size:11px;color:#5a6577;}' +
+  '.ec .ec-k.ec-o{background:#eef3f9;}.ec .ec-k.ec-g{background:#e9f7ee;}.ec .ec-k.ec-g b{color:#18794e;}.ec .ec-k.ec-b{background:#eaf2ff;}.ec .ec-k.ec-b b{color:#1f5fbf;}.ec .ec-k.ec-r{background:#fdecec;}.ec .ec-k.ec-r b{color:#c0392b;}' +
+  '.ec .ec-bar{height:10px;border-radius:5px;background:#e6e9ef;overflow:hidden;margin:10px 0 3px;}.ec .ec-bar i{display:block;height:100%;background:#2e9e63;}.ec .ec-lb{font-size:11.5px;color:#5a6577;display:flex;justify-content:space-between;}' +
+  '.ec .ec-tb{overflow-x:auto;margin-top:10px;}.ec table{width:100%;border-collapse:collapse;font-size:12.5px;}.ec th{background:#123a63;color:#fff;padding:6px 7px;text-align:right;font-weight:600;white-space:nowrap;}.ec th:first-child,.ec td:first-child{text-align:left;}' +
+  '.ec td{padding:6px 7px;border-bottom:1px solid #eef0f4;text-align:right;white-space:nowrap;}.ec tr.ec-v td{background:#fdecec;}.ec tr.ec-p td{background:#fff4e5;}.ec tr.ec-z td{background:#f5f6f8;color:#5a6577;}.ec tr.ec-t td{font-weight:700;background:#f3f5f8;}.ec .ec-rj{color:#c0392b;font-weight:700;}.ec td small{color:#7a8496;}' +
+  '.ec .ec-nt{font-size:12px;color:#5a6577;line-height:1.5;margin-top:8px;}.ec .ec-bt{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;}.ec .ec-bt a,.ec .ec-bt button{flex:1;min-width:140px;text-align:center;border:0;border-radius:10px;padding:11px 6px;font-size:13.5px;font-weight:700;cursor:pointer;text-decoration:none;}' +
+  '.ec .ec-b1{background:#123a63;color:#fff;}.ec .ec-b2{background:#25d366;color:#fff;}.ec .ec-msg{font-size:12px;color:#5a6577;margin-top:6px;}.ec img.ec-pv{width:100%;border:1px solid #e1e6ee;border-radius:8px;margin-top:8px;}' +
+  '@media(max-width:520px){.ec table{font-size:11.5px;}.ec th,.ec td{padding:5px 4px;}.ec td small{display:block;}.ec .ec-hd b{font-size:17px;}}' +
+  '.ec details{margin-top:10px;font-size:12.5px;}.ec summary{cursor:pointer;color:#1f5fbf;}.ec .ec-pg{display:flex;justify-content:space-between;padding:4px 2px;border-bottom:1px dashed #eef0f4;}';
+function ecCssUnaVez(){ if (document.getElementById('ecCss')) return; var st = document.createElement('style'); st.id = 'ecCss'; st.textContent = EC_CSS; document.head.appendChild(st); }
+function ecCargando(txt){ ecCssUnaVez(); var b = document.getElementById('ecBox'); if (b) b.innerHTML = '<div class="ec" style="padding:24px;text-align:center;color:#5a6577;">' + ecE(txt || 'Armando el estado de cuenta…') + '</div>'; }
+function ecError(msg){ var b = document.getElementById('ecBox'); if (b) b.innerHTML = '<div class="ec" style="padding:18px;color:#c0392b;">' + ecE(msg) + '</div>'; }
+function ecCargado(r){ EC_R = r; EC_MODO = 'DASH'; ecPintar(); }
+function ecModo(k){ EC_MODO = k; ecPintar(); }
+function ecPintar(){
+  ecCssUnaVez(); var r = EC_R, b = document.getElementById('ecBox'); if (!r || !b) return;
+  var d = ecDatos(r, EC_MODO), M = d.M, g = r.cred.grupal, al = r.debeHoy <= 0.5;
+  var sub = g ? (r.persona.id + ' · grupo ' + r.cred.id + (r.persona.ancla ? ' (ancla)' : ' · ancla: ' + ecTit(r.cred.nombre))) : (r.cred.id + ' · ' + ecTit(r.cred.tipo || 'individual') + ' · ' + ecTit(r.cred.frecuencia));
+  var h = '<div class="ec"><div class="ec-hd"><b>' + ecE(ecTit(r.persona.nombre)) + '</b><span>' + ecE(sub) + ' · al ' + ecE(r.fecha) + '</span></div>' +
+    '<div class="ec-seg"><button class="' + (EC_MODO === 'DASH' ? 'on' : '') + '" onclick="ecModo(&quot;DASH&quot;)">Como el dashboard</button><button class="' + (EC_MODO === 'CAP' ? 'on' : '') + '" onclick="ecModo(&quot;CAP&quot;)">Todo a capital primero</button></div>' +
+    '<div class="ec-k4"><div class="ec-k ec-o"><i>Monto original</i><b>' + ecM(r.monto) + '</b><small>a pagar ' + ecM(r.aPagar) + '</small></div>' +
+    '<div class="ec-k ec-g"><i>Cobrado</i><b>' + ecM(r.cobrado) + '</b><small>interés ' + ecM(M.int) + '</small></div>' +
+    '<div class="ec-k ec-b"><i>Fue a capital</i><b>' + ecM(M.cap) + '</b><small>' + (M.cap >= r.monto - 0.5 ? 'capital 100% recuperado ✅' : 'de ' + ecM(r.monto)) + '</small></div>' +
+    (al ? '<div class="ec-k ec-g"><i>Debe hoy</i><b>Al corriente</b><small>' + (r.porVencer > 0.5 ? 'por vencer ' + ecM(r.porVencer) : 'sin saldo pendiente') + '</small></div>'
+        : '<div class="ec-k ec-r"><i>Debe hoy</i><b>' + ecM(r.debeHoy) + '</b><small>cap ' + ecM(M.venCap) + ' · int ' + ecM(M.venInt) + (d.mora ? '<br>+ moratorio ' + ecM(d.mora) : '') + '</small></div>') + '</div>' +
+    '<div class="ec-bar"><i style="width:' + d.avance + '%"></i></div><div class="ec-lb"><span>Avance</span><span><b>' + d.avance + '%</b> · ' + ecM(r.cobrado) + ' de ' + ecM(r.aPagar) + '</span></div>';
+  var tP = 0, tC = 0, tI = 0, tF = 0, v = function(n){ return n === null || n === undefined ? '?' : (Math.abs(n) < 0.5 ? '—' : ecM(n)); };
+  h += '<div class="ec-tb"><table><tr><th>' + (g ? 'Semana' : 'Pago') + '</th><th>Pagó</th><th>Capital</th><th>Interés</th><th>Falta</th></tr>' + d.filas.map(function(f){
+    var cl = f.estado === 'VENCIDA' ? 'ec-v' : (f.estado === 'PARCIAL' ? 'ec-p' : (/BONIF|SIN_DES/.test(f.estado) ? 'ec-z' : ''));
+    var extra = f.estado === 'BONIF_PENDIENTE' ? ' · bonificación' : (f.estado === 'BONIFICADA' ? ' · bonificada' : (f.estado === 'SIN_DESGLOSE' ? ' · sin desglose' : (f.supuesto && g ? ' · el grupo' : '')));
+    if (f.pagado) tP += f.pagado; if (f.cap) tC += f.cap; if (f.int) tI += f.int; if (f.falta > 0.5) tF += f.falta;
+    return '<tr class="' + cl + '"><td>' + ecE(ecEtiqueta(f, g)) + ' <small>' + ecE(ecFechaTxt(f) + extra) + '</small></td><td>' + (f.estado === 'BONIF_PENDIENTE' ? '—' : v(f.pagado)) + '</td><td>' + v(f.cap) + '</td><td>' + v(f.int) + '</td><td' + (f.falta > 0.5 ? ' class="ec-rj"' : '') + '>' + (f.falta > 0.5 ? ecM(f.falta) : (f.falta === null ? '?' : '—')) + '</td></tr>'; }).join('');
+  if (EC_MODO === 'CAP') { tC = M.cap; tI = M.int; }
+  h += '<tr class="ec-t"><td>Total</td><td>' + ecM(tP) + '</td><td>' + ecM(tC) + '</td><td>' + ecM(tI) + '</td><td' + (tF > 0.5 ? ' class="ec-rj"' : '') + '>' + (tF > 0.5 ? ecM(tF) : '—') + '</td></tr></table></div>';
+  h += '<div class="ec-nt">' + d.notas.map(function(n){ return '• ' + ecE(n); }).join('<br>') + '</div>';
+  var tactil = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+  h += '<div class="ec-bt"><button class="ec-b1" onclick="ecBotonImagen()">' + (tactil ? '📤 Compartir imagen' : '🖼 Guardar imagen') + '</button><a class="ec-b2" target="_blank" href="' + ecE(ecWa(r)) + '">💬 WhatsApp' + (r.persona.tel ? '' : ' (elegir contacto)') + '</a></div><div class="ec-msg" id="ecMsg"></div><div id="ecImg"></div>';
+  if ((r.pagos || []).length) h += '<details><summary>Sus pagos registrados (' + r.pagos.length + ')</summary>' + r.pagos.map(function(p){ return '<div class="ec-pg"><span>' + ecE(p.fecha) + (p.cuota ? ' · ' + (g ? 'semana ' : 'pago ') + ecE(p.cuota) : '') + (p.tipo === 'ADICIONAL' ? ' · aportación a capital' : '') + '</span><b>' + ecM(p.monto) + '</b></div>'; }).join('') + '</details>';
+  b.innerHTML = h + '</div>';
+}
+function ecBotonImagen(){ var r = EC_R; if (!r) return; var msg = document.getElementById('ecMsg'); if (msg) msg.textContent = 'Armando la imagen…';
+  ecImagen(r, EC_MODO, function(url, txt){ var mm = document.getElementById('ecMsg'), im = document.getElementById('ecImg'); if (mm) mm.textContent = txt || ''; if (im && txt) im.innerHTML = '<img class="ec-pv" alt="Estado de cuenta" src="' + url + '">'; }); }
+/* === fin ESTADO DE CUENTA === */
+
+// 17/11/2026: estado de cuenta encima de la ficha (el "atrás" del celular lo cierra y deja la ficha)
+function ecAbrirApp(idCred, idPersona){
+  var mo = $('modal2');
+  mo.innerHTML = '<div class="mbox" onclick="event.stopPropagation()" style="max-width:860px;"><div style="display:flex;justify-content:flex-end;"><a href="#" onclick="cerrarCred();return false;" style="font-size:20px;text-decoration:none;color:var(--mu);">✕</a></div><div id="ecBox"></div><button class="btn bs" onclick="cerrarCred()">Cerrar</button></div>';
+  mo.className = 'modal on'; ecCargando();
+  leer('appEstadoCuenta', [{ idCred: idCred, idPersona: idPersona || '' }], function(r){ if (mo.className.indexOf('on') < 0) return; ecCargado(r); }, function(e){ ecError(e.message); });
+}
 </script></body></html>
