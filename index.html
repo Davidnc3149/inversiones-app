@@ -1258,7 +1258,7 @@ var PR_CSS = '.prw{font-family:Arial,Helvetica,sans-serif;color:#1d2433;}.prw .p
   '.prw .pr-r{display:flex;justify-content:space-between;align-items:center;gap:8px;}.prw .pr-n{font-weight:700;font-size:14.5px;}.prw .pr-s{font-size:11.5px;color:#5a6577;}.prw .pr-rj{color:#c0392b;font-weight:700;}.prw .pr-ok{color:#18794e;font-weight:700;}' +
   '.prw .pr-bar{height:6px;background:#e6e9ef;border-radius:3px;overflow:hidden;margin-top:7px;display:flex;}.prw .pr-bar i{display:block;height:100%;}' +
   '.prw .pr-hd{background:#123a63;color:#fff;border-radius:12px;padding:12px 14px;margin-bottom:10px;}.prw .pr-hd b{display:block;font-size:18px;}.prw .pr-hd span{font-size:12px;opacity:.85;}' +
-  '.prw .pr-k{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px;}@media(max-width:620px){.prw .pr-k{grid-template-columns:1fr 1fr;}}.prw .pr-k div{background:#fff;border:1px solid #e1e6ee;border-radius:10px;padding:8px 10px;}.prw .pr-k i{display:block;font-style:normal;font-size:11px;color:#5a6577;font-weight:700;}.prw .pr-k b{font-size:18px;}' +
+  '.prw .pr-k{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px;}.prw .pr-k div{background:#fff;border:1px solid #e1e6ee;border-radius:10px;padding:8px 10px;}.prw .pr-k i{display:block;font-style:normal;font-size:11px;color:#5a6577;font-weight:700;}.prw .pr-k b{font-size:18px;}' +
   '.prw .pr-sec{border-radius:10px;padding:6px 10px;font-weight:700;font-size:13px;margin:10px 0 4px;}.prw .pr-it{background:#fff;border:1px solid #eef0f4;border-radius:10px;padding:8px 10px;margin-bottom:6px;cursor:pointer;}' +
   '.prw .pr-dt{font-size:11.5px;color:#5a6577;margin-top:2px;}.prw .pr-pill{font-size:11px;border-radius:10px;padding:1px 7px;font-weight:700;white-space:nowrap;}' +
   '.prw .pr-op{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;margin:10px 2px;}.prw .pr-op label{display:flex;gap:5px;align-items:center;cursor:pointer;}' +
@@ -1298,10 +1298,10 @@ function prPintar(){
 }
 function prDetalleHtml(r){
   var d = r.detalle, p = d.promotor, act = d.creditos.filter(function(c){ return !c.detenido; }), det = d.creditos.filter(function(c){ return c.detenido; });
-  var tot = act.reduce(function(a, c){ return a + c.vencido; }, 0), pv = d.porVencer.reduce(function(a, c){ return a + c.monto; }, 0);
+  var tot = act.reduce(function(a, c){ return a + c.vencido; }, 0);
   var h = '<div class="prw">' + (PR_ST.solo ? '' : '<button class="pr-v" onclick="prVolver()">← Todos los promotores</button>') +
     '<div class="pr-hd"><b>' + prE(prTit(p.nombre)) + '</b><span>' + prE(p.id) + (p.tel ? ' · 📱 ' + prTel(p.tel) : ' · sin teléfono en la hoja PROMOTOR') + ' · al ' + prE(r.fecha) + '</span></div>' +
-    '<div class="pr-k"><div><i>Vencido hoy</i><b style="color:#c0392b;">' + prM(tot) + '</b></div><div><i>Créditos con atraso</i><b>' + act.length + '</b></div><div><i>El más atrasado</i><b>' + (act.length ? Math.max.apply(null, act.map(function(c){ return c.dias; })) + ' días' : '—') + '</b></div><div><i>Vence en 7 días</i><b>' + prM(pv) + '</b></div></div>';
+    '<div class="pr-k"><div><i>Vencido hoy</i><b style="color:#c0392b;">' + prM(tot) + '</b></div><div><i>Créditos con atraso</i><b>' + act.length + '</b></div><div><i>El más atrasado</i><b>' + (act.length ? Math.max.apply(null, act.map(function(c){ return c.dias; })) + ' días' : '—') + '</b></div></div>';
   if (d.conMora) h += '<div class="pr-s" style="margin:-4px 0 6px;">Moratorio a hoy: <b>' + prM(d.moraTotal) + '</b>' + (d.moraErr ? ' (' + d.moraErr + ' no se pudieron calcular)' : '') + '</div>';
   if (!act.length) h += '<div class="pr-c" style="cursor:default;text-align:center;">🎉 Sin créditos con atraso.</div>';
   [0, 1, 2].forEach(function(u){
@@ -1309,9 +1309,7 @@ function prDetalleHtml(r){
     h += '<div class="pr-sec" style="background:' + PR_URG[u][2] + ';color:' + PR_URG[u][1] + ';">' + PR_URG[u][0] + ' · ' + xs.length + ' · ' + prM(xs.reduce(function(a, c){ return a + c.vencido; }, 0)) + '</div>' + xs.map(prItem).join('');
   });
   if (det.length) h += '<div class="pr-sec" style="background:#eef0f4;color:#5a6577;">⚖️ Detenidos (demanda) · no se suman</div>' + det.map(prItem).join('');
-  if (PR_ST.semana && d.porVencer.length) h += '<div class="pr-sec" style="background:#eaf2ff;color:#1f5fbf;">📅 Vence en los próximos 7 días · ' + prM(pv) + '</div>' +
-    d.porVencer.map(function(c){ return '<div class="pr-it" onclick="prFicha(&quot;' + prE(c.id) + '&quot;)"><div class="pr-r"><span><b>' + prE(c.corto) + '</b> <span class="pr-s">' + prE(c.id) + '</span></span><b>' + prM(c.monto) + '</b></div><div class="pr-dt">' + prE(c.nums) + ' · ' + prE(c.fecha) + (c.tel ? ' · 📱 ' + prTel(c.tel) : '') + '</div></div>'; }).join('');
-  h += '<div class="pr-op"><label><input type="checkbox" ' + (PR_ST.mora ? 'checked' : '') + ' onchange="prOpc(&quot;mora&quot;,this.checked)"> incluir moratorio</label><label><input type="checkbox" ' + (PR_ST.semana ? 'checked' : '') + ' onchange="prOpc(&quot;semana&quot;,this.checked)"> incluir lo que vence en 7 días</label></div>';
+  h += '<div class="pr-op"><label><input type="checkbox" ' + (PR_ST.mora ? 'checked' : '') + ' onchange="prOpc(&quot;mora&quot;,this.checked)"> incluir moratorio</label></div>';
   var tactil = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
   h += '<div class="pr-bt"><button class="pr-b1" onclick="prBotonImagen()">' + (tactil ? '📤 Compartir imagen' : '🖼 Guardar imagen') + '</button><a class="pr-b2" target="_blank" href="' + prE(prWa(p.tel, d.mensaje)) + '">💬 WhatsApp' + (p.tel ? ' a ' + prE(prTit((p.corto || p.nombre).split(' ')[0])) : ' (elegir contacto)') + '</a><button class="pr-b3" onclick="prCopiar()">📋 Copiar texto</button></div><div class="pr-msg" id="prMsg"></div><div id="prImg"></div></div>';
   return h;
@@ -1339,7 +1337,7 @@ function prCanvas(r){
   bloques.forEach(function(xs){ if (!xs.length) return; H += 36; xs.forEach(function(c){ H += 50 + lineasQuien(c).length * 17 + ((c.sinDesglose || c.noCuadra) ? 17 : 0); }); });
   if (!act.length) H += 50;
   H += 40;
-  var pvs = PR_ST.semana ? d.porVencer : [];
+  var pvs = [];
   if (pvs.length) H += 36 + pvs.length * 26;
   var nota = 'Por favor da seguimiento hoy. Si alguien ya pagó, mándanos su comprobante para registrarlo.';
   H += 14 + envolver(nota, W - 2 * P, '13px Arial').length * 19 + P;

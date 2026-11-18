@@ -1,7 +1,7 @@
 /* Inversiones Conscientes · sw.js — guarda los archivos de la app en el celular para que abra rápido.
    Las llamadas al sistema (script.google.com) NUNCA pasan por aquí: siempre van directo.
    Cuando cambie index.html, sube también este archivo con el número de CACHE una más arriba. */
-const CACHE = 'ic-app-v23';
+const CACHE = 'ic-app-v24';
 const BASE = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
