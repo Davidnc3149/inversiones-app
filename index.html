@@ -351,7 +351,7 @@ function dispHtml(d){
     h += fila('Paga a <b>' + e(q.cred) + '</b>' + (q.nombre ? ' · ' + e(cor(q.nombre)) : '') + ' (cuota' + (q.cuotas.length > 1 ? 's ' : ' ') + e(nums) + ')', mm(q.total), q.interes > 0 ? 'interés ' + mm(q.interes) + ' · capital ' + mm(q.total - q.interes) : 'capital'); });
   if (d.ren - lig > 1) h += fila('Descuento sin pagos ligados (renovación o consolidación)', mm(d.ren - lig), null);
   h += '<tr><td style="padding:4px 10px 0 0;"><b>Total del crédito</b></td><td style="padding:4px 0 0;text-align:right;"><b>' + mm(d.monto) + '</b></td><td></td></tr></table>';
-  if (d.liquida.length) h += '<div>Cuenta a devengar (donde entró en caja lo que se pagó): <b>' + (d.ctaRen ? e(d.ctaRen) : 'ninguna: no entró a caja') + '</b></div>';
+  if (d.liquida.length) h += '<div>Lo que pagó otras cuotas no salió del banco: se descontó de la entrega.</div>';
   if (d.recorrido) h += '<div>📅 ' + e(d.recorrido) + '</div>';
   if (d.ref) h += '<div>Referencia: ' + e(d.ref) + '</div>';
   if (d.nota) h += '<div style="color:#888;">Nota: ' + e(d.nota) + '</div>';
@@ -772,11 +772,10 @@ function dspPintar(){ var d = DP, x = dspX(); if (!d || !x) return;
       '<div class="l2">' + (d.cons ? '<span class="mini">' + m(d.ren) + ' van a la consolidación</span>' : '<a href="#" onclick="abAbrir(' + k + ');return false;" style="color:var(--ac);font-weight:700;">＋ Abonar a otro</a>') + '<span>se le entrega <span class="' + (ent < -0.5 ? 'mal' : 'ent') + '">' + m(ent) + '</span></span></div></div>'; });
   var fuera = a && a.confiable ? (a.personas || []).filter(function(p){ return p.fila < 0; }) : [];
   if (fuera.length) h += '<p class="mini" style="margin-top:8px;"><b>No entraron al grupo nuevo:</b> ' + fuera.map(function(p){ return esc(corto(p.nombre)) + (p.total > 0 ? ' (debe ' + m(p.total) + ', queda pendiente en ' + esc(a.id) + ')' : ' (✓ ya pagó)'); }).join(' · ') + '</p>';
+  if (!d.cons) h += '<div id="d4" style="display:none;"><h2 class="sec" id="d4T">Cuotas que se descuentan</h2><p class="mini" style="margin:-6px 0 6px;">Se pagan con lo que se le descuenta de la entrega: no sale ni entra del banco.</p><div id="d4P"></div></div>';
   h += '<h2 class="sec">3 · Cuenta a devengar</h2><p class="mini" style="margin:-6px 0 6px;">¿de qué cuenta sale lo que se entrega?</p><div class="grid2">' + [['ef','Efectivo'],['bb','BBVA'],['nu','NU']].map(function(c){ return '<label class="fld">' + c[1] + '<input type="number" inputmode="decimal" id="d_' + c[0] + '" value="' + esc(DP[c[0]]) + '" oninput="DP.' + c[0] + '=this.value;dspPie()"></label>'; }).join('') + '</div>' +
     '<label class="op" style="margin-top:10px;"><input type="checkbox"' + (DP.intS ? ' checked' : '') + ' onchange="DP.intS=this.checked;dspPintar()"><span>Una parte sale de los intereses<small>si no, todo sale de capital</small></span></label>' +
     (DP.intS ? '<div class="grid2">' + [['iEf','Intereses de Efectivo'],['iBb','Intereses de BBVA'],['iNu','Intereses de NU']].map(function(c){ return '<label class="fld">' + c[1] + '<input type="number" inputmode="decimal" value="' + esc(DP[c[0]]) + '" oninput="DP.' + c[0] + '=this.value;dspPie()"></label>'; }).join('') + '</div>' : '') +
-    (d.cons ? '' : '<div id="d4" style="display:none;"><h2 class="sec" id="d4T">4 · ¿A qué cuenta entra lo que se liquida?</h2><p class="mini" style="margin:-6px 0 6px;">Lo que se le descuenta de la entrega cuenta como pago de ese crédito. Elige en qué cuenta se anota ese cobro; lo normal es la misma de donde sale el dinero.</p>' +
-      '<label class="fld">Cuenta<select id="d4Cta" onchange="DP.ctaRen=this.value;dspP4Pintar()">' + [['BBVA', 'BBVA'], ['EFECTIVO', 'Efectivo'], ['NU', 'NU']].map(function(o){ return '<option value="' + o[0] + '">' + o[1] + '</option>'; }).join('') + '</select></label><div id="d4P"></div></div>') +
     '<div class="grid2"><label class="fld">Referencia (opcional)<input value="' + esc(DP.ref) + '" oninput="DP.ref=this.value"></label><label class="fld">Nota (opcional)<input value="' + esc(DP.nota) + '" oninput="DP.nota=this.value"></label></div>' +
     '<div id="dPie" class="aviso ok" style="margin-top:12px;"></div><button class="btn bp" id="dBtn" onclick="dspGuardar()">💸 Confirmar dispersión</button>' +
     '<button class="btn" style="background:none;color:var(--bad);" onclick="dspCancelar()">Cancelar este crédito…</button>';
@@ -822,7 +821,7 @@ function p4Html(P, cta, sal, idN, items){
       (cu.length > 6 ? '<tr><td colspan="3" style="color:#6b7280;padding:3px 0;">+ ' + (cu.length - 6) + ' cuotas más</td></tr>' : '') +
       '<tr><td style="' + B + '"><b>Total</b></td><td style="' + B + R + 'color:#6b7280;">interés ' + pm(p.interes) + ' · capital ' + pm(p.capital) + '</td><td style="' + B + R + '"><b>' + pm(p.total) + '</b></td></tr></table>' + (p.aprox ? '<div style="font-size:11.5px;color:#8a5300;margin-top:4px;">Reparto aproximado: al confirmar se abona por persona a cada cuota; el total es el mismo, el interés puede variar unos pesos.</div>' : '') + '</div>'; });
   h += '<div style="font-size:12px;color:#6b7280;margin-top:6px;"><b>No se captura en Pagos</b>: el sistema lo aplica solo al confirmar.</div>' +
-    (sc <= 0 && otras.length ? '<div style="background:#fff4e5;border:1px solid #f0b45a;color:#8a5300;border-radius:10px;padding:8px 10px;font-size:12.5px;margin-top:8px;">⚠️ De ' + nomC[cta] + ' no sale dinero en esta dispersión: Lo normal es elegir la cuenta de donde sale el dinero (' + otras.map(function(k){ return nomC[k]; }).join(' o ') + ').</div>' : '');
+    (cta && sc <= 0 && otras.length ? '<div style="background:#fff4e5;border:1px solid #f0b45a;color:#8a5300;border-radius:10px;padding:8px 10px;font-size:12.5px;margin-top:8px;">⚠️ De ' + nomC[cta] + ' no sale dinero en esta dispersión: Lo normal es elegir la cuenta de donde sale el dinero (' + otras.map(function(k){ return nomC[k]; }).join(' o ') + ').</div>' : '');
   return h; }
 /* === fin PASO A QUE CUENTA ENTRA === */
 
@@ -832,12 +831,12 @@ function dspP4(){ var el = $('d4'); if (!el || !DP || !DP.datos || DP.cons) retu
   DP.datos.filas.forEach(function(f, k){ (DP.abonos[k] || []).forEach(function(q){ ab.push({ cred: q.cred, monto: q.monto, quien: primer(f.nombre) }); }); });
   var ant = a && desc > 0 ? a.id : '', L = p4Items(ant, desc, ab, !!(a && a.grupo && desc < a.total - 2));
   if (!L.length) { el.style.display = 'none'; P4A.key = ''; P4A.prev = null; return; }
-  el.style.display = 'block'; $('d4T').textContent = '4 · ' + p4Titulo(L, ant); $('d4Cta').value = dspCtaRen();
+  el.style.display = 'block'; $('d4T').textContent = 'Cuotas que se descuentan (' + L.map(function(i){ return i.cred; }).join(', ') + ')';
   var key = DP.id + '|' + JSON.stringify(L);
   if (key !== P4A.key) { P4A.key = key; P4A.prev = null; $('d4P').innerHTML = '<div class="mini">Calculando cómo queda en caja…</div>'; clearTimeout(P4A.t);
     P4A.t = setTimeout(function(){ leer('appDspPreview', [L], function(r){ if (P4A.key !== key) return; P4A.prev = r || []; P4A.items = L; dspP4Pintar(); }, function(e){ if (P4A.key === key) $('d4P').innerHTML = '<div class="aviso r">' + esc(e.message || e) + '</div>'; }); }, 350);
   } else dspP4Pintar(); }
-function dspP4Pintar(){ if (!$('d4P') || !P4A.prev) return; $('d4P').innerHTML = p4Html(P4A.prev, dspCtaRen(), dspP4Sal(), DP.id, P4A.items); }
+function dspP4Pintar(){ if (!$('d4P') || !P4A.prev) return; $('d4P').innerHTML = p4Html(P4A.prev, '', dspP4Sal(), DP.id, P4A.items); }
 function dspCtaRen(){ if (DP.ctaRen) return DP.ctaRen; var e = num(DP.ef), b = num(DP.bb), u = num(DP.nu); return u > b && u >= e ? 'NU' : (e > b && e > u ? 'EFECTIVO' : 'BBVA'); }
 function dspGuardar(){ var d = DP, x = dspX(), a = dspAnt(), desc = dspDescTotal(), ab = dspAbTotal(), s = num(d.ef) + num(d.bb) + num(d.nu) + desc + ab;
   var neg = d.datos.filas.filter(function(f, k){ return dspEntFila(k) < -0.5; }); if (neg.length) { alert('A ' + neg.map(function(f){ return primer(f.nombre); }).join(', ') + ' se le descuenta más de lo que le toca. Quita una palomita o baja un abono.'); return; }
@@ -848,10 +847,10 @@ function dspGuardar(){ var d = DP, x = dspX(), a = dspAnt(), desc = dspDescTotal
   d.datos.filas.forEach(function(f, k){ (d.abonos[k] || []).forEach(function(q){ abonos.push({ cred: q.cred, monto: q.monto, persona: tit(f.nombre), pid: f.id }); });
     desg.push({ id: f.id, nombre: f.nombre, autorizado: f.monto, desc: dspDescFila(k), anterior: a ? a.id : '', abonos: (d.abonos[k] || []).map(function(q){ return { cred: q.cred, monto: q.monto }; }), entrega: dspEntFila(k) }); });
   var porP = (a && a.grupo && a.confiable && desc > 0) ? Object.keys(d.incl) : undefined;
-  if (!confirm('¿Confirmar que ya se entregó el dinero de ' + d.id + '?\n\nSale del banco/caja: ' + m(num(d.ef) + num(d.bb) + num(d.nu)) + '\n' + $('dPie').innerText.split('\n').slice(1).join('\n') + (!d.cons && desc + ab > 0 ? '\nLo que se liquida (' + m(desc + ab) + ') se registra en ' + dspCtaRen() + '.' : ''))) return;
+  if (!confirm('¿Confirmar que ya se entregó el dinero de ' + d.id + '?\n\nSale del banco/caja: ' + m(num(d.ef) + num(d.bb) + num(d.nu)) + '\n' + $('dPie').innerText.split('\n').slice(1).join('\n') + (!d.cons && desc + ab > 0 ? '\nLo descontado (' + m(desc + ab) + ') paga cuotas: no sale del banco.' : ''))) return;
   var b = $('dBtn'); b.disabled = true; b.textContent = 'Dispersando… no cierres la app';
   escribir('appDspDispersar', [d.id, { fecha: d.fecha, efectivo: d.ef, bbva: d.bb, nu: d.nu, renovacion: desc || '', anterior: d.cons ? 'CONSOLIDACION' : (a && desc > 0 ? a.id : ''), porPersona: d.cons ? undefined : porP, abonos: d.cons ? [] : abonos,
-      esperado: { deudas: d.cons ? {} : d.deudas, anterior: !d.cons && a && desc > 0 ? a.total : 0 }, desglose: d.cons ? [] : desg, referencia: d.ref, nota: d.nota, intEfectivo: d.intS ? d.iEf : '', intBbva: d.intS ? d.iBb : '', intNu: d.intS ? d.iNu : '', cuentaRenovacion: d.cons ? '' : dspCtaRen() }],
+      esperado: { deudas: d.cons ? {} : d.deudas, anterior: !d.cons && a && desc > 0 ? a.total : 0 }, desglose: d.cons ? [] : desg, referencia: d.ref, nota: d.nota, intEfectivo: d.intS ? d.iEf : '', intBbva: d.intS ? d.iBb : '', intNu: d.intS ? d.iNu : '', cuentaRenovacion: '' }],
     function(r){ DP = null; DL = null; R = null; guardarLocal('ic_app_res', ''); abrirPanel('<div class="w"><div class="big">✅ ' + esc(d.id) + ' dispersado</div>' + ((r.avisos || []).length ? '<div class="aviso a">' + r.avisos.map(esc).join('<br>') + '</div>' : '') + (r.repetido ? '<div class="aviso ok">(ya se había dispersado: no se repitió)</div>' : '') + '<button class="btn bp" onclick="cerrarPanel();cargar()">Listo</button></div>'); },
     function(e){ b.disabled = false; b.textContent = '💸 Confirmar dispersión'; if (/^CAMBIO\|/.test(e.message)) { alert(e.message.replace(/^CAMBIO\|/, '') + '\n\nVuelvo a cargar la tabla.'); DP.datos = null; DP.op = nuevoOp(); dspCargar(true); dspPintar(); return; } alert(e.message); }, d.op); }
 function dspCancelar(){ var mot = prompt('¿Por qué se cancela ' + DP.id + '? (el crédito queda CANCELADO; se puede reactivar desde la computadora)'); if (!mot || mot.trim().length < 4) return;
