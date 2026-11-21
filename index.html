@@ -257,6 +257,17 @@ function vHoy(){
   h += '<h2 class="sec">Vencidos<span class="n r">' + venc.length + '</span></h2>' + (venc.length ? venc.map(function(c){ return filaCred(c, 'venc'); }).join('') : '<div class="vacio">Sin vencidos. 🎉</div>');
   $('app').innerHTML = h + '</div>';
 }
+// 21/11/2026: al tocar Capital total o Cartera viva se ven las cantidades exactas
+function kDet(cual){ var el = $('kdet'); if (!el || !R) return; if (el.dataset.k === cual) { el.innerHTML = ''; el.dataset.k = ''; return; } el.dataset.k = cual;
+  var K = R.kpi || {}, CT = R.ct, f = function(t, v, b){ return '<div class="dato"><span>' + t + '</span>' + (b ? '<b>' + v + '</b>' : '<span>' + v + '</span>') + '</div>'; }, h = '';
+  if (cual === 'ct' && CT) h = '<h2 class="sec">Capital total</h2>' + f('Capital total', m(CT.total), true) + f('Capital colocado (cartera viva)', m(CT.colocado)) + f('Capital en cuentas (Efvo · BBVA · NU)', m(CT.caja)) +
+    f('Meta', m(CT.meta)) + f(CT.total < CT.meta ? 'Falta para la meta' : 'Arriba de la meta', m(Math.abs(CT.meta - CT.total)), true) + f('Intereses en cuentas (no cuentan aquí)', m(CT.interesCaja));
+  if (cual === 'cv') { var T = {}; (R.tipos || []).forEach(function(t){ T[t.clave] = t; });
+    h = '<h2 class="sec">Cartera viva</h2>' + f('Capital colocado', m(K.capital), true) + f('Por cobrar (capital + interés)', m(K.porCobrar)) + f('Interés por cobrar', m((K.porCobrar || 0) - (K.capital || 0))) +
+      [['GRUPAL','Grupales'],['COMPUESTO','Ind. compuesto'],['SIMPLE','Ind. simple']].map(function(x){ var t = T[x[0]] || {}; return f(x[1] + ' · ' + (t.n || 0), m(t.capital)); }).join('') +
+      f('Créditos · clientes', (K.creditos || 0) + ' · ' + (K.clientes || 0)); }
+  el.innerHTML = h ? '<div style="margin-top:8px;background:var(--sf);border:1px solid var(--ln);border-radius:14px;padding:4px 12px 8px;">' + h + '<p class="mini">Toca la tarjeta otra vez para cerrar.</p></div>' : '';
+}
 function vResumen(A, venc, prox, pr2, porD){
   cargarResumen(false);
   var K = R && R.kpi, C = D.caja, caja = C ? C.reduce(function(s, x){ return s + x.capital + x.interes; }, 0) : null;
@@ -264,11 +275,14 @@ function vResumen(A, venc, prox, pr2, porD){
   if (!R) h += '<div class="aviso ok" style="display:flex;gap:8px;align-items:center;"><span class="spin" style="width:14px;height:14px;border-width:2px;"></span>Trayendo los números del dashboard…</div>';
   if (R && R._error) h += '<div class="aviso a">No se pudo actualizar el resumen: ' + esc(R._error) + '</div>';
   var mes = R && R.mes;
+  var CT = R && R.ct;   // 21/11/2026: Capital total (colocado + capital en cuentas)
   h += '<div class="kpis">' +
-    '<div class="k p"><div class="t">Cartera viva</div><div class="v">' + (K ? mm(K.capital) : '—') + '</div><div class="s">' + (K ? K.creditos + ' créditos · ' + K.clientes + ' clientes' : '') + '</div></div>' +
+    (CT ? '<div class="k p" style="grid-column:1/-1;cursor:pointer;' + (CT.total < CT.meta ? 'background:#8f2d22;border-color:#8f2d22;' : '') + '" onclick="kDet(\'ct\')"><div class="t">Capital total ›</div><div class="v">' + mm(CT.total) + '</div><div class="s">colocado ' + mm(CT.colocado) + ' + en cuentas ' + mm(CT.caja) + (CT.total < CT.meta ? ' · ' + mm(CT.meta - CT.total) + ' abajo de la meta' : ' · arriba de la meta') + '</div><div class="bar"><i style="width:' + Math.min(100, Math.round(CT.total / CT.meta * 100)) + '%"></i></div></div>' : '') +
+    '<div class="k p" style="cursor:pointer;" onclick="kDet(\'cv\')"><div class="t">Cartera viva ›</div><div class="v">' + (K ? mm(K.capital) : '—') + '</div><div class="s">' + (K ? K.creditos + ' créditos · ' + K.clientes + ' clientes' : '') + '</div></div>' +
     '<div class="k r"><div class="t">Vencido</div><div class="v">' + (K ? m(K.vencido) : m(venc.reduce(function(s, c){ return s + c.vencido; }, 0))) + '</div><div class="s">' + (K ? K.atrasados + ' créditos · mora ' + (Number(K.mora) || 0).toFixed(1) + '%' : venc.length + ' créditos') + '</div></div>' +
     '<div class="k"><div class="t">Cobrado semana</div><div class="v">' + m(D.cobradoSemana) + '</div><div class="s">' + (mes ? mes.label + ': ' + m(mes.cobrado) + ' de ' + m(mes.programado) : 'desde el lunes ' + esc(D.desdeLunes.slice(0, 5))) + '</div>' + (mes && mes.programado ? '<div class="bar"><i style="width:' + Math.min(100, Math.round(mes.cobrado / mes.programado * 100)) + '%"></i></div>' : '') + '</div>' +
     '<div class="k"><div class="t">' + (caja !== null ? 'Caja total' : 'Por cobrar 7 días') + '</div><div class="v">' + (caja !== null ? m(caja) : m(prox.reduce(function(s, x){ return s + x.q.falta; }, 0))) + '</div><div class="s">' + (caja !== null ? C.map(function(x){ return x.cuenta === 'EFECTIVO' ? 'Efvo' : x.cuenta; }).join(' · ') : prox.length + ' cuotas') + '</div></div></div>';
+  h += '<div id="kdet"></div>';
   if (R && R.tipos && R.tipos.length) { var T = {}; R.tipos.forEach(function(t){ T[t.clave] = t; });
     h += '<div class="mini3">' + [['GRUPAL','Grupales'],['COMPUESTO','Ind. compuesto'],['SIMPLE','Ind. simple']].map(function(x){ var t = T[x[0]] || {}; return '<div>' + x[1] + '<b>' + mm(t.capital) + '</b>' + (t.n || 0) + ' · venc. ' + m(t.vencido) + '</div>'; }).join('') + '</div>'; }
   if (K) h += '<div class="mini3"><div>Por cobrar 7 días<b>' + m(K.prox7) + '</b>' + K.prox7n + ' cuotas</div><div>Cobrado en el mes<b>' + m(K.cobradoMes) + '</b>pagos recibidos</div><div>Detenido<b>' + m(K.detenido) + '</b>demanda / convenio</div></div>';
