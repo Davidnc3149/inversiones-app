@@ -773,11 +773,10 @@ function dspPintar(){ var d = DP, x = dspX(); if (!d || !x) return;
   var fuera = a && a.confiable ? (a.personas || []).filter(function(p){ return p.fila < 0; }) : [];
   if (fuera.length) h += '<p class="mini" style="margin-top:8px;"><b>No entraron al grupo nuevo:</b> ' + fuera.map(function(p){ return esc(corto(p.nombre)) + (p.total > 0 ? ' (debe ' + m(p.total) + ', queda pendiente en ' + esc(a.id) + ')' : ' (✓ ya pagó)'); }).join(' · ') + '</p>';
   h += '<h2 class="sec">3 · Cuenta a devengar</h2><p class="mini" style="margin:-6px 0 6px;">¿de qué cuenta sale lo que se entrega?</p><div class="grid2">' + [['ef','Efectivo'],['bb','BBVA'],['nu','NU']].map(function(c){ return '<label class="fld">' + c[1] + '<input type="number" inputmode="decimal" id="d_' + c[0] + '" value="' + esc(DP[c[0]]) + '" oninput="DP.' + c[0] + '=this.value;dspPie()"></label>'; }).join('') + '</div>' +
-    ((!d.cons && (a || dspAbTotal() > 0)) ? '<label class="fld" style="margin-top:10px;">¿A qué cuenta entra lo que se liquida' + (a ? ' de ' + esc(a.id) : '') + (dspAbTotal() > 0 ? (a ? ' y' : '') + ' lo que se abona a otros' : '') + '?<select onchange="DP.ctaRen=this.value;dspPie()">' +
-      [['', 'Automática (de donde sale más)'], ['BBVA', 'BBVA'], ['EFECTIVO', 'Efectivo'], ['NU', 'NU']].map(function(o){ return '<option value="' + o[0] + '"' + ((DP.ctaRen || '') === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') +
-      '</select><span class="mini">Entra como pago del crédito liquidado y sale como parte de la entrega: el saldo no cambia, pero en caja se ven las cuotas y su interés.</span></label>' : '') +
     '<label class="op" style="margin-top:10px;"><input type="checkbox"' + (DP.intS ? ' checked' : '') + ' onchange="DP.intS=this.checked;dspPintar()"><span>Una parte sale de los intereses<small>si no, todo sale de capital</small></span></label>' +
     (DP.intS ? '<div class="grid2">' + [['iEf','Intereses de Efectivo'],['iBb','Intereses de BBVA'],['iNu','Intereses de NU']].map(function(c){ return '<label class="fld">' + c[1] + '<input type="number" inputmode="decimal" value="' + esc(DP[c[0]]) + '" oninput="DP.' + c[0] + '=this.value;dspPie()"></label>'; }).join('') + '</div>' : '') +
+    (d.cons ? '' : '<div id="d4" style="display:none;"><h2 class="sec" id="d4T">4 · ¿A qué cuenta entra lo que se liquida?</h2><p class="mini" style="margin:-6px 0 6px;">Es el pago de lo que se descuenta de la entrega. No entra dinero al banco: se registra para que en caja se vean las cuotas cobradas y su interés.</p>' +
+      '<label class="fld">Cuenta<select id="d4Cta" onchange="DP.ctaRen=this.value;dspP4Pintar()">' + [['BBVA', 'BBVA'], ['EFECTIVO', 'Efectivo'], ['NU', 'NU']].map(function(o){ return '<option value="' + o[0] + '">' + o[1] + '</option>'; }).join('') + '</select></label><div id="d4P"></div></div>') +
     '<div class="grid2"><label class="fld">Referencia (opcional)<input value="' + esc(DP.ref) + '" oninput="DP.ref=this.value"></label><label class="fld">Nota (opcional)<input value="' + esc(DP.nota) + '" oninput="DP.nota=this.value"></label></div>' +
     '<div id="dPie" class="aviso ok" style="margin-top:12px;"></div><button class="btn bp" id="dBtn" onclick="dspGuardar()">💸 Confirmar dispersión</button>' +
     '<button class="btn" style="background:none;color:var(--bad);" onclick="dspCancelar()">Cancelar este crédito…</button>';
@@ -792,7 +791,56 @@ function dspPie(){ var el = $('dPie'), x = dspX(); if (!el || !x || !DP.datos) r
   el.innerHTML = L.join('<br>');
   var rm = $('dResM'); if (rm) { var ent = Math.round((x.monto - desc - ab) * 100) / 100;   // 21/11/2026: monto a dispersar = crédito nuevo − lo que se liquida
     rm.innerHTML = '<div class="dato"><span>Crédito nuevo ' + esc(DP.id) + '</span><b>' + m(x.monto) + '</b></div>' + (desc > 0 ? '<div class="dato"><span>− ' + (DP.cons ? 'Consolidación' : 'Liquida ' + esc(a ? a.id : '')) + '</span><b style="color:var(--bad)">−' + m(desc) + '</b></div>' : '') +
-      (ab > 0 ? '<div class="dato"><span>− Abonos a otros créditos</span><b style="color:var(--bad)">−' + m(ab) + '</b></div>' : '') + '<div class="dato"><span><b>Se entrega</b></span><b style="color:var(--ac);font-size:17px;">' + m(ent) + '</b></div>'; } }
+      (ab > 0 ? '<div class="dato"><span>− Abonos a otros créditos</span><b style="color:var(--bad)">−' + m(ab) + '</b></div>' : '') + '<div class="dato"><span><b>Se entrega</b></span><b style="color:var(--ac);font-size:17px;">' + m(ent) + '</b></div>'; }  dspP4(); }
+/* === PASO A QUE CUENTA ENTRA (21/11/2026) === */
+// Vista del paso "¿A qué cuenta entra lo que liquida CR-xxxx?": recibo de cada crédito que se paga y cómo queda en caja.
+// P = dspPreviewCaja(...), cta = 'BBVA' | 'EFECTIVO' | 'NU', sal = { EFECTIVO, BBVA, NU } (lo que sale de cada cuenta), idN = crédito nuevo
+function p4Def(sal){ var e = Number(sal.EFECTIVO) || 0, b = Number(sal.BBVA) || 0, u = Number(sal.NU) || 0; return u > b && u >= e ? 'NU' : (e > b && e > u ? 'EFECTIVO' : 'BBVA'); }
+function p4Items(ant, monto, abonos){ var L = [], ix = {};
+  if (ant && Number(monto) > 0) { L.push({ cred: ant, monto: Math.round(Number(monto) * 100) / 100 }); ix[ant] = 0; }
+  (abonos || []).forEach(function(a){ if (!a || !a.cred || !(Number(a.monto) > 0)) return; if (ix[a.cred] != null) L[ix[a.cred]].monto = Math.round((L[ix[a.cred]].monto + Number(a.monto)) * 100) / 100; else { ix[a.cred] = L.length; L.push({ cred: a.cred, monto: Math.round(Number(a.monto) * 100) / 100 }); } });
+  return L; }
+function p4Titulo(items, ant){ var ids = items.map(function(i){ return i.cred; }); if (!ids.length) return '¿A qué cuenta entra lo que se liquida?';
+  return '¿A qué cuenta entra lo que ' + (ids.length === 1 && ids[0] === ant ? 'liquida ' : 'se paga a ') + ids.join(' y ') + '?'; }
+function p4Html(P, cta, sal, idN){
+  var pm = function(v){ var x = Math.round(Number(v) || 0); return (x < 0 ? '−$' : '$') + Math.abs(x).toLocaleString('es-MX'); };
+  var pe = function(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+  var tt = function(t){ return String(t || '').toLowerCase().replace(/(^|\s)(\S)/g, function(a, b, c){ return b + c.toUpperCase(); }); };
+  var nomC = { EFECTIVO: 'Efectivo', BBVA: 'BBVA', NU: 'NU' }, ren = 0, int = 0;
+  P.forEach(function(p){ ren += Number(p.total) || 0; int += Number(p.interes) || 0; });
+  var sc = Number(sal[cta]) || 0, otras = ['EFECTIVO', 'BBVA', 'NU'].filter(function(k){ return k !== cta && (Number(sal[k]) || 0) > 0; });
+  var R = 'text-align:right;white-space:nowrap;padding:3px 0;', B = 'border-top:1.5px solid #333;padding-top:4px;';
+  var h = '';
+  P.forEach(function(p){ var cu = p.cuotas || [], ver = cu.slice(0, 6);
+    h += '<div style="border:1px solid #cfe3d8;border-radius:12px;padding:9px 12px;margin:10px 0;background:#fbfdfc;color:#1d2433;">' +
+      '<div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:baseline;"><b style="font-size:14.5px;">Pago del ' + pe(p.cred) + '</b><span style="font-size:11px;background:#e5f3ec;color:#0f6e56;border-radius:8px;padding:1px 8px;">' + (p.liquida ? 'liquida el crédito' : 'abono · le quedan ' + pm(Math.max(0, p.debe - p.monto))) + '</span></div>' +
+      '<div style="font-size:12px;color:#6b7280;">' + pe(tt(p.nombre)) + (p.modalidad ? ' · ' + pe(String(p.modalidad).toLowerCase()) : '') + '</div>' +
+      '<table style="width:100%;border-collapse:collapse;font-size:12.5px;margin-top:5px;">' + ver.map(function(q){
+        return '<tr><td style="padding:3px 0;">Cuota ' + pe(q.num) + (q.completa ? '' : ' <span style="color:#8a5300;">(parte)</span>') + '</td><td style="' + R + 'color:#6b7280;">interés ' + pm(q.interes) + ' · capital ' + pm(q.capital) + '</td><td style="' + R + 'width:74px;">' + pm(q.monto) + '</td></tr>'; }).join('') +
+      (cu.length > 6 ? '<tr><td colspan="3" style="color:#6b7280;padding:3px 0;">+ ' + (cu.length - 6) + ' cuotas más</td></tr>' : '') +
+      '<tr><td style="' + B + '"><b>Total</b></td><td style="' + B + R + 'color:#6b7280;">interés ' + pm(p.interes) + ' · capital ' + pm(p.capital) + '</td><td style="' + B + R + '"><b>' + pm(p.total) + '</b></td></tr></table></div>'; });
+  h += '<div style="font-size:12.5px;color:#6b7280;margin-top:6px;">Así queda en la caja de <b>' + nomC[cta] + '</b> ese día:</div>' +
+    '<table style="width:100%;border-collapse:collapse;font-size:13px;margin-top:4px;color:#1d2433;">' +
+    '<tr><td style="padding:3px 0;">Entrega ' + pe(idN) + (otras.length ? ' (lo de ' + nomC[cta] + ' + lo que se descuenta)' : ' (crédito completo)') + '</td><td style="' + R + '">capital ' + pm(-(sc + ren)) + '</td></tr>' +
+    P.map(function(p){ return '<tr><td style="padding:3px 0;">Pago ' + pe(p.cred) + ' · ' + (p.liquida ? 'liquidado por renovación' : 'abono descontado de la entrega') + '</td><td style="' + R + '">capital +' + pm(p.capital) + '<br>interés +' + pm(p.interes) + '</td></tr>'; }).join('') +
+    '<tr><td style="' + B + '"><b>Movimiento neto</b></td><td style="' + B + R + '"><b>' + pm(-sc) + '</b></td></tr></table>' +
+    '<div style="font-size:12px;color:#6b7280;margin-top:6px;">El saldo no cambia' + (sc > 0 ? ' (sale ' + pm(sc) + ', lo mismo que el banco)' : '') + '; ahora sí se ven los ' + pm(int) + ' de interés y las cuotas en la caja. <b>No se captura en Pagos</b>: el sistema lo aplica solo al confirmar.</div>' +
+    (sc <= 0 && otras.length ? '<div style="background:#fff4e5;border:1px solid #f0b45a;color:#8a5300;border-radius:10px;padding:8px 10px;font-size:12.5px;margin-top:8px;">⚠️ De ' + nomC[cta] + ' no sale dinero en esta dispersión: ahí solo se verían la entrega y el pago (neto $0). Lo normal es elegir la cuenta de donde sale el dinero (' + otras.map(function(k){ return nomC[k]; }).join(' o ') + ').</div>' : '');
+  return h; }
+/* === fin PASO A QUE CUENTA ENTRA === */
+
+var P4A = { key: '', prev: null, t: null };
+function dspP4Sal(){ return { EFECTIVO: num(DP.ef), BBVA: num(DP.bb), NU: num(DP.nu) }; }
+function dspP4(){ var el = $('d4'); if (!el || !DP || !DP.datos || DP.cons) return; var a = dspAnt(), desc = dspDescTotal(), ab = [];
+  DP.datos.filas.forEach(function(f, k){ (DP.abonos[k] || []).forEach(function(q){ ab.push({ cred: q.cred, monto: q.monto }); }); });
+  var ant = a && desc > 0 ? a.id : '', L = p4Items(ant, desc, ab);
+  if (!L.length) { el.style.display = 'none'; P4A.key = ''; P4A.prev = null; return; }
+  el.style.display = 'block'; $('d4T').textContent = '4 · ' + p4Titulo(L, ant); $('d4Cta').value = dspCtaRen();
+  var key = DP.id + '|' + JSON.stringify(L);
+  if (key !== P4A.key) { P4A.key = key; P4A.prev = null; $('d4P').innerHTML = '<div class="mini">Calculando cómo queda en caja…</div>'; clearTimeout(P4A.t);
+    P4A.t = setTimeout(function(){ leer('appDspPreview', [L], function(r){ if (P4A.key !== key) return; P4A.prev = r || []; dspP4Pintar(); }, function(e){ if (P4A.key === key) $('d4P').innerHTML = '<div class="aviso r">' + esc(e.message || e) + '</div>'; }); }, 350);
+  } else dspP4Pintar(); }
+function dspP4Pintar(){ if (!$('d4P') || !P4A.prev) return; $('d4P').innerHTML = p4Html(P4A.prev, dspCtaRen(), dspP4Sal(), DP.id); }
 function dspCtaRen(){ if (DP.ctaRen) return DP.ctaRen; var e = num(DP.ef), b = num(DP.bb), u = num(DP.nu); return u > b && u >= e ? 'NU' : (e > b && e > u ? 'EFECTIVO' : 'BBVA'); }
 function dspGuardar(){ var d = DP, x = dspX(), a = dspAnt(), desc = dspDescTotal(), ab = dspAbTotal(), s = num(d.ef) + num(d.bb) + num(d.nu) + desc + ab;
   var neg = d.datos.filas.filter(function(f, k){ return dspEntFila(k) < -0.5; }); if (neg.length) { alert('A ' + neg.map(function(f){ return primer(f.nombre); }).join(', ') + ' se le descuenta más de lo que le toca. Quita una palomita o baja un abono.'); return; }
