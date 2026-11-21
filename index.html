@@ -796,8 +796,8 @@ function dspPie(){ var el = $('dPie'), x = dspX(); if (!el || !x || !DP.datos) r
 // Vista del paso "¿A qué cuenta entra lo que liquida CR-xxxx?": recibo de cada crédito que se paga y cómo queda en caja.
 // P = dspPreviewCaja(...), cta = 'BBVA' | 'EFECTIVO' | 'NU', sal = { EFECTIVO, BBVA, NU } (lo que sale de cada cuenta), idN = crédito nuevo
 function p4Def(sal){ var e = Number(sal.EFECTIVO) || 0, b = Number(sal.BBVA) || 0, u = Number(sal.NU) || 0; return u > b && u >= e ? 'NU' : (e > b && e > u ? 'EFECTIVO' : 'BBVA'); }
-function p4Items(ant, monto, abonos){ var L = [], ix = {};
-  if (ant && Number(monto) > 0) { L.push({ cred: ant, monto: Math.round(Number(monto) * 100) / 100 }); ix[ant] = 0; }
+function p4Items(ant, monto, abonos, aprox){ var L = [], ix = {};
+  if (ant && Number(monto) > 0) { L.push({ cred: ant, monto: Math.round(Number(monto) * 100) / 100, aprox: !!aprox }); ix[ant] = 0; }
   (abonos || []).forEach(function(a){ if (!a || !a.cred || !(Number(a.monto) > 0)) return; if (ix[a.cred] != null) L[ix[a.cred]].monto = Math.round((L[ix[a.cred]].monto + Number(a.monto)) * 100) / 100; else { ix[a.cred] = L.length; L.push({ cred: a.cred, monto: Math.round(Number(a.monto) * 100) / 100 }); } });
   return L; }
 function p4Titulo(items, ant){ var ids = items.map(function(i){ return i.cred; }); if (!ids.length) return '¿A qué cuenta entra lo que se liquida?';
@@ -818,7 +818,7 @@ function p4Html(P, cta, sal, idN){
       '<table style="width:100%;border-collapse:collapse;font-size:12.5px;margin-top:5px;">' + ver.map(function(q){
         return '<tr><td style="padding:3px 0;">Cuota ' + pe(q.num) + (q.completa ? '' : ' <span style="color:#8a5300;">(parte)</span>') + '</td><td style="' + R + 'color:#6b7280;">interés ' + pm(q.interes) + ' · capital ' + pm(q.capital) + '</td><td style="' + R + 'width:74px;">' + pm(q.monto) + '</td></tr>'; }).join('') +
       (cu.length > 6 ? '<tr><td colspan="3" style="color:#6b7280;padding:3px 0;">+ ' + (cu.length - 6) + ' cuotas más</td></tr>' : '') +
-      '<tr><td style="' + B + '"><b>Total</b></td><td style="' + B + R + 'color:#6b7280;">interés ' + pm(p.interes) + ' · capital ' + pm(p.capital) + '</td><td style="' + B + R + '"><b>' + pm(p.total) + '</b></td></tr></table></div>'; });
+      '<tr><td style="' + B + '"><b>Total</b></td><td style="' + B + R + 'color:#6b7280;">interés ' + pm(p.interes) + ' · capital ' + pm(p.capital) + '</td><td style="' + B + R + '"><b>' + pm(p.total) + '</b></td></tr></table>' + (p.aprox ? '<div style="font-size:11.5px;color:#8a5300;margin-top:4px;">Reparto aproximado: al confirmar se abona por persona a cada cuota; el total es el mismo, el interés puede variar unos pesos.</div>' : '') + '</div>'; });
   h += '<div style="font-size:12.5px;color:#6b7280;margin-top:6px;">Así queda en la caja de <b>' + nomC[cta] + '</b> ese día:</div>' +
     '<table style="width:100%;border-collapse:collapse;font-size:13px;margin-top:4px;color:#1d2433;">' +
     '<tr><td style="padding:3px 0;">Entrega ' + pe(idN) + (otras.length ? ' (lo de ' + nomC[cta] + ' + lo que se descuenta)' : ' (crédito completo)') + '</td><td style="' + R + '">capital ' + pm(-(sc + ren)) + '</td></tr>' +
@@ -833,7 +833,7 @@ var P4A = { key: '', prev: null, t: null };
 function dspP4Sal(){ return { EFECTIVO: num(DP.ef), BBVA: num(DP.bb), NU: num(DP.nu) }; }
 function dspP4(){ var el = $('d4'); if (!el || !DP || !DP.datos || DP.cons) return; var a = dspAnt(), desc = dspDescTotal(), ab = [];
   DP.datos.filas.forEach(function(f, k){ (DP.abonos[k] || []).forEach(function(q){ ab.push({ cred: q.cred, monto: q.monto }); }); });
-  var ant = a && desc > 0 ? a.id : '', L = p4Items(ant, desc, ab);
+  var ant = a && desc > 0 ? a.id : '', L = p4Items(ant, desc, ab, !!(a && a.grupo && desc < a.total - 2));
   if (!L.length) { el.style.display = 'none'; P4A.key = ''; P4A.prev = null; return; }
   el.style.display = 'block'; $('d4T').textContent = '4 · ' + p4Titulo(L, ant); $('d4Cta').value = dspCtaRen();
   var key = DP.id + '|' + JSON.stringify(L);
