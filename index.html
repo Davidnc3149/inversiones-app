@@ -25,6 +25,12 @@
   .marca{font-family:Fraunces,serif;font-size:21px;color:var(--ac);} .fecha{font-size:12.5px;color:var(--mu);}
   .yo{font-size:12px;font-weight:700;background:var(--acs);color:var(--ac2);border-radius:99px;padding:3px 10px;border:0;}
   .kpis{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+  /* 21/11/2026: Revisar personas */
+  .rv-k{display:flex;gap:6px;margin:4px 0 8px;} .rv-k div{flex:1;border-radius:10px;padding:6px 8px;font-size:12px;} .rv-k b{display:block;font-size:19px;}
+  .rv-l{background:var(--sf);border:1px solid var(--ln);border-radius:14px;} .rv-p{display:flex;gap:9px;padding:9px 11px;border-bottom:1px solid var(--ln);} .rv-p:last-child{border-bottom:0;}
+  .rv-dot{width:11px;height:11px;border-radius:50%;margin-top:4px;flex:none;} .rv-rol{font-size:11px;background:var(--ln);border-radius:6px;padding:1px 6px;} .rv-c{font-size:10.5px;color:var(--mu);}
+  .rv-z{font-size:12.5px;margin-top:3px;} .rv-cr span{display:inline-block;font-size:10.5px;background:var(--ln);border-radius:6px;padding:1px 6px;margin:3px 4px 0 0;color:var(--mu);}
+  .rv-nota{font-size:12px;color:var(--mu);margin:6px 0;border:1px dashed var(--ln);border-radius:10px;padding:6px 9px;} .rv-json{width:100%;box-sizing:border-box;height:46px;font-size:11px;margin-top:4px;}
   .k{background:var(--sf);border:1px solid var(--ln);border-radius:14px;padding:10px 12px;}
   .cbz{display:flex;justify-content:space-between;font-size:12.5px;color:var(--mu);margin:2px 2px 4px;font-weight:600;}
   .cb{background:var(--sf);border:1px solid var(--ln);border-radius:14px;padding:10px 12px;margin-bottom:8px;} .cb.at{border-left:4px solid var(--bad);} .cb.ok{opacity:.62;}
@@ -182,7 +188,7 @@ function cargarResumen(forzar){
     function(e){ cargarResumen._va = false; if (sesionMala(e)) return; if (R) { R._error = e.message; if (TAB === 'hoy') pintar(); } }); }
 
 // ---------- navegación: abajo los 5 de diario, arriba ☰ todos los módulos ----------
-var GRUPO_TAB = { nuevo: 'creditos', modificar: 'creditos', dispersar: 'creditos', reportes: 'creditos', movs: 'caja', proy: 'caja', prom: 'cobrar' };
+var GRUPO_TAB = { revisar: 'creditos', nuevo: 'creditos', modificar: 'creditos', dispersar: 'creditos', reportes: 'creditos', movs: 'caja', proy: 'caja', prom: 'cobrar' };
 function tabs(){ return adm() ? [['hoy','☀️','Hoy'],['cobrar','💬','Cobrar'],['pagos','💵','Pagos'],['creditos','👥','Créditos'],['caja','📊','Caja']] : [['hoy','☀️','Hoy'],['cobrar','💬','Cobrar'],['creditos','👥','Créditos'],['reportes','📄','Reporte']]; }
 function pintarNav(){ var n = $('nav'), on = GRUPO_TAB[TAB] || TAB; if (!adm() && TAB === 'reportes') on = 'reportes'; n.style.display = 'grid'; n.innerHTML = tabs().map(function(t){ return '<button class="' + (on === t[0] ? 'on' : '') + '" onclick="ir(\'' + t[0] + '\')"><b>' + t[1] + '</b>' + t[2] + '</button>'; }).join(''); }
 function ir(t, sub){ TAB = t; if (sub) { if (t === 'pagos') SEGP = sub; } menu(false); cerrarPanel(); pintarNav(); pintar(); window.scrollTo(0, 0); }
@@ -191,7 +197,7 @@ function menuItems(){
   var it = function(t, ic, txt, sub, b){ var on = TAB === t && (!sub || (t === 'pagos' && SEGP === sub)); return '<button class="di' + (on ? ' on' : '') + '" onclick="ir(\'' + t + '\'' + (sub ? ',\'' + sub + '\'' : '') + ')">' + ic + ' ' + txt + (b ? '<small>' + b + '</small>' : '') + '</button>'; };
   if (!adm()) return '<div class="dg">Inicio</div>' + it('hoy', '☀️', 'Mi día') + '<div class="dg">Créditos</div>' + it('creditos', '👥', 'Mis créditos') + '<div class="dg">Cobranza</div>' + it('cobrar', '💬', 'Mensajes del día', '', nA) + it('prom', '📋', 'Mi cobranza') + '<div class="dg">Reportes</div>' + it('reportes', '📄', 'Reporte de un crédito');
   return '<div class="dg">Inicio</div>' + it('hoy', '☀️', 'Resumen del día') +
-    '<div class="dg">Créditos</div>' + it('creditos', '👥', 'Cartera') + it('nuevo', '➕', 'Nuevo crédito') + it('modificar', '✏️', 'Modificar crédito') + it('dispersar', '💸', 'Dispersar', '', nD) +
+    '<div class="dg">Créditos</div>' + it('creditos', '👥', 'Cartera') + it('revisar', '🔎', 'Revisar personas') + it('nuevo', '➕', 'Nuevo crédito') + it('modificar', '✏️', 'Modificar crédito') + it('dispersar', '💸', 'Dispersar', '', nD) +
     '<div class="dg">Pagos</div>' + it('pagos', '💵', 'Registrar pago', 'reg') + it('pagos', '↩️', 'Modificar / anular pago', 'corr') +
     '<div class="dg">Cobranza</div>' + it('cobrar', '💬', 'Mensajes del día', '', nA) + it('prom', '📋', 'Cobranza por promotor') +
     '<div class="dg">Caja</div>' + it('caja', '📊', 'Saldos y dashboard') + it('movs', '🔁', 'Movimientos de caja') +
@@ -206,7 +212,7 @@ function cabeza(sub){ var f = new Date(D.hoy + 'T12:00:00');
     '<button class="yo" onclick="cargar()" title="Actualizar">↻</button><button class="yo" onclick="menu(true)">' + esc(primer(D.yo.nombre)) + '</button></div>' +
     (D._cargando ? '<div class="aviso ok" style="display:flex;gap:8px;align-items:center;"><span class="spin" style="width:14px;height:14px;border-width:2px;"></span>Actualizando… (estos datos son de las ' + esc(D._hora || '') + ')</div>' : '') +
     (!D._cargando && D._viejo ? '<div class="aviso a">Sin conexión: estos datos son de las ' + esc(D._hora || '') + '. Toca ↻ cuando tengas señal.</div>' : ''); }
-function pintar(){ if (!D) return; var V = { hoy: vHoy, creditos: vCreditos, cobrar: vCobrar, pagos: vPagos, caja: vCaja, movs: vMovs, proy: vProy, prom: vProm, dispersar: vDispersar, nuevo: vNuevo, modificar: vModificar, reportes: vReportes };
+function pintar(){ if (!D) return; var V = { hoy: vHoy, creditos: vCreditos, cobrar: vCobrar, pagos: vPagos, caja: vCaja, movs: vMovs, proy: vProy, prom: vProm, dispersar: vDispersar, revisar: vRevisar, nuevo: vNuevo, modificar: vModificar, reportes: vReportes };
   if (!adm() && ['hoy', 'creditos', 'cobrar', 'reportes', 'prom'].indexOf(TAB) < 0) TAB = 'hoy';
   // 15/11/2026: si estabas escribiendo (buscador, bloque de nuevo crédito) y llegan datos nuevos, no se cierra el teclado
   var ae = document.activeElement, fx = null; if (ae && $('app').contains(ae) && /^(INPUT|TEXTAREA)$/.test(ae.tagName)) { var all = $('app').querySelectorAll('input,textarea'); fx = { i: Array.prototype.indexOf.call(all, ae), id: ae.id, v: ae.value, a: ae.selectionStart, b: ae.selectionEnd }; }
@@ -897,6 +903,96 @@ function abGuardar(){ var d = AB.data, mo = Math.round(num($('abm').value) * 100
 
 // ---------- NUEVO CRÉDITO: pegar el bloque ----------
 var NC = { texto: '', r: null, bonif: null, ficha: true, c0: null, tasa0: '' };
+// 21/11/2026: 🔎 Revisar personas (antes de un crédito nuevo)
+var RVA = { texto: '', r: null };
+/* === REVISAR PERSONAS (21/11/2026) === */
+// Vista y dos imágenes (A: Giovanni, completa · B: promotora, sin datos de créditos de otros clientes). Sin librerías.
+var RV_COL = { R: ['#d93025', '#fdecea', '#9b1c1c'], Y: ['#f0a500', '#fff4e0', '#8a5300'], G: ['#1e8e3e', '#e8f5ee', '#0f6e56'] };
+function rvE(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+function rvM(n){ return '$' + Math.round(Number(n) || 0).toLocaleString('es-MX'); }
+function rvTitulo(r, ver){ var e = r.encabezado, tipo = e.modalidad === 'GRUPAL' ? 'Grupo nuevo' : (e.modalidad ? 'Crédito nuevo' : 'Revisión');
+  return (ver === 'B' && e.modalidad === 'GRUPAL' ? 'Tu grupo nuevo' : tipo) + (ver !== 'B' && e.promNombre ? ' · ' + e.promNombre.split(' ').slice(0, 2).join(' ') : '') + (e.monto ? ' · ' + rvM(e.monto) : '') + ' · ' + e.n + ' persona' + (e.n === 1 ? '' : 's') + ' · ' + String(r.fecha).slice(0, 10); }
+function rvHtml(r){
+  var c = r.conteo, h = '<div class="rv-k"><div style="background:' + RV_COL.R[1] + ';color:' + RV_COL.R[2] + '"><b>' + c.R + '</b>rojas</div><div style="background:' + RV_COL.Y[1] + ';color:' + RV_COL.Y[2] + '"><b>' + c.Y + '</b>revisar</div><div style="background:' + RV_COL.G[1] + ';color:' + RV_COL.G[2] + '"><b>' + c.G + '</b>sin problema</div></div>';
+  if (r.anterior && r.anterior.length) h += '<div class="rv-nota">Grupo que se renueva: <b>' + r.anterior.map(rvE).join(', ') + '</b> (no cuenta como otro crédito; solo se marca a quien deba ahí).</div>';
+  (r.avisos || []).forEach(function(a){ h += '<div class="rv-nota" style="color:#9b1c1c">' + rvE(a) + '</div>'; });
+  h += '<div class="rv-l">' + r.personas.map(function(p){
+    return '<div class="rv-p"><span class="rv-dot" style="background:' + RV_COL[p.nivel][0] + '"></span><div style="flex:1;min-width:0"><b>' + rvE(p.nombre) + '</b>' + (p.rol ? ' <span class="rv-rol">' + rvE(p.rol) + '</span>' : '') +
+      (p.curp ? ' <span class="rv-c">' + rvE(p.curp) + '</span>' : ' <span class="rv-c">sin CURP</span>') +
+      (p.razones.length ? p.razones.map(function(z){ return '<div class="rv-z" style="color:' + RV_COL[z.n][2] + '">' + rvE(z.t) + '</div>'; }).join('') : '<div class="rv-z" style="color:' + RV_COL.G[2] + '">' + rvE(p.verde) + '</div>') +
+      (p.creditos.length ? '<div class="rv-cr">' + p.creditos.map(function(q){ return '<span>' + rvE(q.cid) + ' · ' + rvE(q.rol) + ' · ' + rvE(String(q.estatus).toLowerCase()) + (q.vencido ? ' · <b style="color:#9b1c1c">venc. ' + rvM(q.vencido) + '</b>' : '') + (q.renueva ? ' · se renueva' : '') + '</span>'; }).join('') + '</div>' : '') +
+      '</div></div>'; }).join('') + '</div>';
+  if (r.faltanCurp && r.faltanCurp.length) h += '<div class="rv-nota">En la base les falta la CURP a ' + r.faltanCurp.length + ' (se buscaron por nombre). Para completarlas en 🗂️ Completar datos de personas:<textarea class="rv-json" readonly onclick="this.select()">' + rvE(JSON.stringify(r.faltanCurp)) + '</textarea></div>';
+  return h;
+}
+// Imagen: ver 'A' (Giovanni) o 'B' (promotora)
+function rvCanvas(r, ver){
+  var W = 760, P = 24, S = 2, cv = document.createElement('canvas'), x = cv.getContext('2d');
+  var envolver = function(t, ancho, font){ x.font = font; var w = String(t).split(' '), L = [], l = ''; w.forEach(function(q){ var q2 = l ? l + ' ' + q : q; if (x.measureText(q2).width > ancho && l) { L.push(l); l = q; } else l = q2; }); if (l) L.push(l); return L; };
+  var alertas = r.personas.filter(function(p){ return p.nivel !== 'G'; }), verdes = r.personas.filter(function(p){ return p.nivel === 'G'; });
+  var txtP = function(p){ var zs = p.razones.map(function(z){ return ver === 'B' ? z.p : z.t; }).filter(function(t){ return t; });
+    var u = []; zs.forEach(function(t){ if (u.indexOf(t) < 0) u.push(t); }); return u.length ? u : [ver === 'B' ? 'Lo revisa Giovanni' : ''] ; };
+  var nivelB = function(p){ if (ver !== 'B') return p.nivel; var zs = p.razones.filter(function(z){ return z.p; }); return !zs.length ? 'Y' : (zs.some(function(z){ return z.n === 'R'; }) ? 'R' : 'Y'); };
+  var ancho = W - 2 * P - 34;
+  var H = 76 + 70;
+  alertas.forEach(function(p){ H += 30 + txtP(p).reduce(function(a, t){ return a + envolver(t, ancho, '14px Arial').length * 19; }, 0) + 10; });
+  var vTxt = verdes.map(function(p){ return p.nombre + (p.rol === 'ancla' ? ' (ancla)' : ''); }).join(', ');
+  if (verdes.length) H += 30 + envolver(vTxt, ancho, 'bold 14px Arial').length * 19 + 22;
+  if (ver !== 'B') H += 44;
+  H += 40;
+  cv.width = W * S; cv.height = H * S; x.scale(S, S);
+  var tx = function(t, X, Y, font, color, al){ x.font = font; x.fillStyle = color; x.textAlign = al || 'left'; x.fillText(t, X, Y); };
+  var rr = function(X, Y, w, h, rad, fill){ x.beginPath(); x.moveTo(X + rad, Y); x.arcTo(X + w, Y, X + w, Y + h, rad); x.arcTo(X + w, Y + h, X, Y + h, rad); x.arcTo(X, Y + h, X, Y, rad); x.arcTo(X, Y, X + w, Y, rad); x.closePath(); x.fillStyle = fill; x.fill(); };
+  x.fillStyle = '#fff'; x.fillRect(0, 0, W, H);
+  x.fillStyle = '#0f6e56'; x.fillRect(0, 0, W, 76);
+  tx('🔎 Revisión de personas', P, 34, 'bold 23px Georgia', '#fff');
+  tx(rvTitulo(r, ver), P, 60, '14px Arial', '#d7efe6');
+  var c = { R: 0, Y: 0, G: verdes.length }; alertas.forEach(function(p){ c[nivelB(p)]++; });
+  var cw = (W - 2 * P - 16) / 3, y = 88;
+  [['R', ver === 'B' ? 'con pendiente' : 'rojas'], ['Y', 'revisar'], ['G', 'sin problema']].forEach(function(q, j){ var X = P + j * (cw + 8); rr(X, y, cw, 50, 8, RV_COL[q[0]][1]); tx(String(c[q[0]]), X + cw / 2, y + 26, 'bold 20px Arial', RV_COL[q[0]][2], 'center'); tx(q[1], X + cw / 2, y + 43, '12px Arial', RV_COL[q[0]][2], 'center'); });
+  y = 146;
+  var linea = function(){ x.fillStyle = '#eeeeee'; x.fillRect(0, y, W, 1); };
+  alertas.forEach(function(p){
+    var n = nivelB(p); linea(); y += 22;
+    x.beginPath(); x.arc(P + 6, y - 5, 6, 0, 7); x.fillStyle = RV_COL[n][0]; x.fill();
+    tx(p.nombre, P + 20, y, 'bold 15px Arial', '#1d2433');
+    if (p.rol) { x.font = 'bold 15px Arial'; var wn = x.measureText(p.nombre).width; tx('· ' + p.rol, P + 26 + wn, y, '14px Arial', '#6b7280'); }
+    txtP(p).forEach(function(t){ envolver(t, ancho, '14px Arial').forEach(function(l){ y += 19; tx(l, P + 20, y, '14px Arial', '#3d4452'); }); });
+    y += 18;
+  });
+  if (verdes.length) { linea(); y += 22; x.beginPath(); x.arc(P + 6, y - 5, 6, 0, 7); x.fillStyle = RV_COL.G[0]; x.fill();
+    envolver(vTxt, ancho, 'bold 14px Arial').forEach(function(l, i){ if (i) y += 19; tx(l, P + 20, y, 'bold 14px Arial', '#1d2433'); });
+    y += 19; tx('Sin problema', P + 20, y, '14px Arial', '#3d4452'); y += 18; }
+  if (ver !== 'B') { x.fillStyle = '#fff8e6'; x.fillRect(0, y, W, 44); x.fillStyle = '#f0e0b0'; x.fillRect(0, y, W, 1); tx('¿Autorizas? ✅ / ❌', P, y + 28, 'bold 15px Arial', '#1d2433'); y += 44; }
+  x.fillStyle = '#faf9f5'; x.fillRect(0, y, W, H - y); x.fillStyle = '#eeeeee'; x.fillRect(0, y, W, 1);
+  tx(ver === 'B' ? 'Inversiones Conscientes · la decisión final es de Giovanni' : 'Inversiones Conscientes · datos del sistema al ' + r.fecha, P, y + 25, '12px Arial', '#777');
+  return cv;
+}
+function rvImagen(r, ver, msgId, imgId){
+  var m = document.getElementById(msgId); if (m) m.textContent = 'Armando la imagen…';
+  var cv = rvCanvas(r, ver), nombre = 'Revision_' + (ver === 'B' ? 'promotora' : 'Giovanni') + '_' + String(r.fecha).slice(0, 10).split('/').join('-') + '.png', url = cv.toDataURL('image/png');
+  var fin = function(t){ var mm = document.getElementById(msgId), im = document.getElementById(imgId); if (mm) mm.textContent = t || ''; if (im) im.innerHTML = '<img alt="Revisión" style="max-width:100%;border:1px solid #ddd;border-radius:8px;margin-top:8px" src="' + url + '">'; };
+  cv.toBlob(function(b){
+    try { var f = (typeof File === 'function') ? new File([b], nombre, { type: 'image/png' }) : null, tactil = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+      if (tactil && f && navigator.canShare && navigator.canShare({ files: [f] })) { navigator.share({ files: [f], title: 'Revisión de personas' }).then(function(){ fin(''); }).catch(function(){ fin(''); }); return; } } catch (e) {}
+    try { var a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = nombre; document.body.appendChild(a); a.click(); setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 4000); fin('Se descargó ' + nombre + '. Si no aparece, guarda la imagen de abajo.'); }
+    catch (e2) { fin('Guarda la imagen de abajo (clic derecho o mantener presionado).'); }
+  }, 'image/png');
+}
+/* === fin REVISAR PERSONAS === */
+
+function vRevisar(){ var h = '<div class="w">' + cabeza('Revisar personas') +
+    '<p class="mini">Pega el <b>bloque de verificación</b> que te da Claude (o el bloque del crédito, o nombres / CURP uno por renglón). No registra nada.</p>' +
+    '<label class="fld">Personas<textarea id="rvT" placeholder="{ verificar: true, promotor: &quot;PR-03&quot;, modalidad: &quot;GRUPAL&quot;, personas: [ … ] }" oninput="RVA.texto=this.value">' + esc(RVA.texto) + '</textarea></label>' +
+    '<button class="btn bp" onclick="rvRevisar()">Revisar</button><div id="rvR"></div></div>';
+  $('app').innerHTML = h; if (RVA.r) rvPinta(); }
+function rvRevisar(){ RVA.texto = $('rvT').value; if (!RVA.texto.trim()) { alert('Pega primero el bloque o la lista.'); return; }
+  $('rvR').innerHTML = cargando('Revisando en toda la cartera…');
+  leer('appRevisarPersonas', [RVA.texto], function(r){ RVA.r = r; if (TAB === 'revisar') rvPinta(); }, function(e){ $('rvR').innerHTML = '<div class="aviso r" style="margin-top:10px;">' + esc(e.message) + '</div>'; }); }
+function rvPinta(){ $('rvR').innerHTML = '<div style="margin-top:10px;">' + rvHtml(RVA.r) + '</div>' +
+    '<h2 class="sec">Mandar la revisión</h2><p class="mini" style="margin:-6px 0 6px;">Se abre compartir con la imagen: elige el chat de WhatsApp.</p>' +
+    '<button class="btn bp" onclick="rvImagen(RVA.r,\'A\',\'rvMsg\',\'rvImg\')">📷 Para Giovanni (completa)</button>' +
+    '<button class="btn bs" onclick="rvImagen(RVA.r,\'B\',\'rvMsg\',\'rvImg\')">📷 Para la promotora</button><div class="mini" id="rvMsg"></div><div id="rvImg"></div>'; }
 function vNuevo(){ var h = '<div class="w">' + cabeza('Nuevo crédito') +
     '<p class="mini">Pega el bloque de datos (el que te da Claude o el formulario). Se revisa antes de registrar y queda <b>por dispersar</b>: el dinero sale en Dispersar.</p>' +
     '<label class="fld">Bloque del crédito<textarea id="ncT" placeholder="{ monto: 20000, plazo: 13, modalidad: &quot;GRUPAL&quot;, … }" oninput="NC.texto=this.value">' + esc(NC.texto) + '</textarea></label>' +
