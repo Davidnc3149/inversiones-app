@@ -333,8 +333,8 @@ function ficha(id){ var c = credDe(id); if (!c) return;
   var ab = c.cuotas.filter(function(q){ return q.falta > 0.5; }), pg = c.cuotas.filter(function(q){ return !(q.falta > 0.5); });
   if (adm()) h += '<div class="acc" style="margin-top:10px;">' + (!c.porDispersar && ab.length ? '<button onclick="pagoAbrir(\'' + c.id + '\')"><b>💵</b>Registrar pago</button>' : '') + (c.porDispersar ? '<button onclick="dspAbrir(\'' + c.id + '\')"><b>💸</b>Dispersar</button>' : '') +
     '<button onclick="mcAbrir(\'' + c.id + '\')"><b>✏️</b>Modificar</button><button onclick="repAbrir(\'' + c.id + '\')"><b>📄</b>Reporte</button>' +
-    (!c.porDispersar ? '<button onclick="moraAbrir(\'' + c.id + '\')"><b>⚖️</b>Moratorios</button>' : '') + (!c.porDispersar && c.modalidad !== 'GRUPAL' ? '<button onclick="ecAbrirApp(\'' + c.id + '\',\'\')"><b>📄</b>Estado de cuenta</button>' : '') + '</div>';
-  else h += '<button class="btn bs" onclick="repAbrir(\'' + c.id + '\')">📄 Reporte del crédito</button>' + (!c.porDispersar && c.modalidad !== 'GRUPAL' ? '<button class="btn bs" onclick="ecAbrirApp(\'' + c.id + '\',\'\')">🧾 Estado de cuenta</button>' : '') + (c.vencido > 0 && !c.porDispersar ? '<button class="btn bs" onclick="moraAbrir(\'' + c.id + '\')">⚖️ Moratorios y cobranza</button>' : '');
+    (!c.porDispersar ? '<button onclick="moraAbrir(\'' + c.id + '\')"><b>⚖️</b>Moratorios</button>' : '') + (!c.porDispersar ? '<button onclick="ecAbrirApp(\'' + c.id + '\',\'' + (c.modalidad === 'GRUPAL' ? 'GRUPO' : '') + '\')"><b>📄</b>' + (c.modalidad === 'GRUPAL' ? 'Edo. cuenta grupo' : 'Estado de cuenta') + '</button>' : '') + '</div>';
+  else h += '<button class="btn bs" onclick="repAbrir(\'' + c.id + '\')">📄 Reporte del crédito</button>' + (!c.porDispersar ? '<button class="btn bs" onclick="ecAbrirApp(\'' + c.id + '\',\'' + (c.modalidad === 'GRUPAL' ? 'GRUPO' : '') + '\')">🧾 Estado de cuenta' + (c.modalidad === 'GRUPAL' ? ' del grupo' : '') + '</button>' : '') + (c.vencido > 0 && !c.porDispersar ? '<button class="btn bs" onclick="moraAbrir(\'' + c.id + '\')">⚖️ Moratorios y cobranza</button>' : '');
   if (c.modalidad === 'GRUPAL' && c.integrantes.length) {
     h += '<h2 class="sec">Integrantes<span class="n">' + c.integrantes.length + '</span></h2><div class="mini" style="margin:-4px 0 6px;">Toca a alguien para ver su estado de cuenta (imagen para entregar).</div>' + (c.sinDesglose ? '<div class="aviso a">Hay pagos sin desglose por persona: lo que debe cada quien puede no estar completo.</div>' : '');
     h += c.integrantes.map(function(i){ var txt = i.debe > 0 ? 'Hola ' + primer(i.nombre) + ', le saluda Inversiones Conscientes. En el grupo ' + c.id + ' tiene pendiente ' + m(i.debe) + ' de su aportación semanal (' + m(i.pago) + '). ¿Nos confirma cuándo lo cubre? Concepto: PAGO PRESTAMO ' + c.id.replace(/\D/g, '').slice(-4) + '. Si ya lo realizó, por favor envíenos su comprobante para registrarlo.' : '';
@@ -1321,7 +1321,7 @@ function ecCanvas(r, modo){
   // encabezado
   rr(P, P, W - 2 * P, 92, 12, '#123a63');
   tx(ecTit(r.persona.nombre), P + 22, P + 40, 'bold 25px Arial', '#ffffff');
-  var sub = grupal ? (r.persona.id + ' · Grupo ' + r.cred.id + (r.persona.ancla ? ' (ancla)' : ' (ancla: ' + ecTit(r.cred.nombre) + ')')) : (r.cred.id + ' · ' + ecTit(r.cred.tipo || 'individual') + ' · ' + ecTit(r.cred.frecuencia));
+  var sub = grupal && r.persona.grupo ? ('Grupo completo ' + r.cred.id + ' · ' + r.persona.n + ' integrantes · ancla: ' + ecTit(r.cred.nombre)) : grupal ? (r.persona.id + ' · Grupo ' + r.cred.id + (r.persona.ancla ? ' (ancla)' : ' (ancla: ' + ecTit(r.cred.nombre) + ')')) : (r.cred.id + ' · ' + ecTit(r.cred.tipo || 'individual') + ' · ' + ecTit(r.cred.frecuencia));
   tx(sub + ' · Corte al ' + r.fecha, P + 22, P + 68, '14px Arial', '#dbe5f1');
   // tarjetas
   var y = P + 92 + 18, cw = (W - 2 * P - 36) / 4;
@@ -1415,7 +1415,7 @@ function ecModo(k){ EC_MODO = k; ecPintar(); }
 function ecPintar(){
   ecCssUnaVez(); var r = EC_R, b = document.getElementById('ecBox'); if (!r || !b) return;
   var d = ecDatos(r, EC_MODO), M = d.M, g = r.cred.grupal, al = r.debeHoy <= 0.5;
-  var sub = g ? (r.persona.id + ' · grupo ' + r.cred.id + (r.persona.ancla ? ' (ancla)' : ' · ancla: ' + ecTit(r.cred.nombre))) : (r.cred.id + ' · ' + ecTit(r.cred.tipo || 'individual') + ' · ' + ecTit(r.cred.frecuencia));
+  var sub = g && r.persona.grupo ? ('grupo completo ' + r.cred.id + ' · ' + r.persona.n + ' integrantes · ancla: ' + ecTit(r.cred.nombre)) : g ? (r.persona.id + ' · grupo ' + r.cred.id + (r.persona.ancla ? ' (ancla)' : ' · ancla: ' + ecTit(r.cred.nombre))) : (r.cred.id + ' · ' + ecTit(r.cred.tipo || 'individual') + ' · ' + ecTit(r.cred.frecuencia));
   var h = '<div class="ec"><div class="ec-hd"><b>' + ecE(ecTit(r.persona.nombre)) + '</b><span>' + ecE(sub) + ' · al ' + ecE(r.fecha) + '</span></div>' +
     '<div class="ec-seg"><button class="' + (EC_MODO === 'DASH' ? 'on' : '') + '" onclick="ecModo(&quot;DASH&quot;)">Como el dashboard</button><button class="' + (EC_MODO === 'CAP' ? 'on' : '') + '" onclick="ecModo(&quot;CAP&quot;)">Todo a capital primero</button></div>' +
     '<div class="ec-k4"><div class="ec-k ec-o"><i>Monto original</i><b>' + ecM(r.monto) + '</b><small>a pagar ' + ecM(r.aPagar) + '</small></div>' +
