@@ -334,16 +334,40 @@ function rcHtml(c){ var r = c && c.recup; if (!r || !r.estado) return '';
   var h = '<div class="aviso ' + cl + '" style="margin-top:10px;' + (cl === 'ok' ? 'background:var(--acs);color:var(--ac2);' : (cl ? '' : 'background:var(--ln);color:var(--ink);')) + '"><b>' + esc(r.titulo || '') + '</b>' +
     (r.leyenda ? '<div style="font-weight:700;margin-top:3px;">' + esc(r.leyenda) + '</div>' : '') + (r.texto ? '<div style="margin-top:3px;">' + esc(r.texto) + '</div>' : '');
   if (adm()) {
-    if (r.estado === 'SUGERIDA') h += '<div class="acc" style="margin-top:8px;"><button onclick="rcAccionApp(\'' + c.id + '\',\'ACTIVAR\')"><b>♻️</b>Activar</button><button onclick="rcAccionApp(\'' + c.id + '\',\'ESPERAR\',1)"><b>⏳</b>Esperar 1 cuota</button>' +
-      '<button onclick="rcAccionApp(\'' + c.id + '\',\'ESPERAR\',2)"><b>⏳</b>Esperar 2 cuotas</button><button onclick="rcAccionApp(\'' + c.id + '\',\'NO_APLICA\')"><b>✖️</b>No aplica</button></div>';
+    if (r.estado === 'SUGERIDA') h += '<button class="btn" style="margin-top:8px;" onclick="rcHoja(\'' + c.id + '\')">Decidir</button>';
     else if (r.estado === 'ACTIVA' || r.estado === 'RECUPERADA') h += '<button class="btn bs" style="margin-top:8px;" onclick="rcAccionApp(\'' + c.id + '\',\'QUITAR\')">Quitar (solo si se marcó por error)</button>';
     else if (r.estado === 'ESPERA' || r.estado === 'NO_APLICA') h += '<button class="btn bs" style="margin-top:8px;" onclick="rcAccionApp(\'' + c.id + '\',\'QUITAR\')">Quitar la marca</button>';
   }
   return h + '</div>'; }
-function rcAccionApp(id, accion, n){ var c = credDe(id); if (!c) return; var x = { n: n || 1 }, pre = c.id + ' · ' + corto(c.nombre) + '\n\n';
-  if (accion === 'ACTIVAR' && !confirm(pre + '¿Activar la recuperación de capital desde hoy?\n\nTodo lo que pague desde hoy se aplica a capital hasta recuperar lo prestado (' + m(c.monto) + '). Lo cobrado antes no se toca.')) return;
+// 24/11/2026 v2: la decisión se toma en una hoja (desde la ficha o desde Registrar pago) y se elige desde qué fecha aplica.
+// Desde Registrar pago la fecha propuesta es la del pago que se está capturando (se suele registrar un día después).
+function rcIsoMenos(d){ var h = new Date(); h.setDate(h.getDate() - d); return h.getFullYear() + '-' + String(h.getMonth() + 1).padStart(2, '0') + '-' + String(h.getDate()).padStart(2, '0'); }
+function rcHoja(id, fecha, desdePago){ var c = credDe(id); if (!c || !c.recup) return; var r = c.recup, f = fecha && fecha <= hoyIso() && fecha >= rcIsoMenos(60) ? fecha : hoyIso(), dp = desdePago ? 1 : 0;
+  abrirModal('<div class="big" style="font-size:22px;">Recuperación de capital</div><div class="mini">' + esc(c.id) + ' · ' + esc(tit(c.nombre)) + '</div>' +
+    '<div class="aviso a" style="margin-top:10px;">' + esc(r.texto || '') + '</div>' +
+    '<label class="fld">Si se activa, aplica desde<input id="rcDesde" type="date" value="' + f + '" max="' + hoyIso() + '" min="' + rcIsoMenos(60) + '" style="font-size:17px;"></label>' +
+    '<div class="mini" style="margin-top:2px;">' + (dp ? 'Propuesta: la fecha de este pago, para que este pago ya se vaya a capital. ' : '') + 'Lo que pagó antes de esa fecha no se toca.</div>' +
+    '<div class="acc" style="margin-top:12px;grid-template-columns:1fr 1fr;"><button onclick="rcDecidir(\'' + c.id + '\',\'ACTIVAR\',0,' + dp + ')"><b>♻️</b>Activar</button><button onclick="rcDecidir(\'' + c.id + '\',\'ESPERAR\',1,' + dp + ')"><b>⏳</b>Esperar 1 cuota</button>' +
+    '<button onclick="rcDecidir(\'' + c.id + '\',\'ESPERAR\',2,' + dp + ')"><b>⏳</b>Esperar 2 cuotas</button><button onclick="rcDecidir(\'' + c.id + '\',\'NO_APLICA\',0,' + dp + ')"><b>✖️</b>No aplica</button></div>' +
+    '<button class="btn bs" style="margin-top:8px;" onclick="cerrarModal()">Cancelar</button>'); }
+function rcDecidir(id, accion, n, desdePago){ var c = credDe(id); if (!c) return; var x = { n: n || 1 }, pre = c.id + ' · ' + corto(c.nombre) + '\n\n';
+  if (accion === 'ACTIVAR') { var d = ($('rcDesde') || {}).value || hoyIso(); if (d > hoyIso() || d < rcIsoMenos(60)) { alert('La fecha debe ser de hoy o de los últimos 60 días.'); return; }
+    if (!confirm(pre + '¿Activar la recuperación de capital desde el ' + fIso(d) + '?\n\nTodo lo que pague desde esa fecha se aplica a capital hasta recuperar lo prestado (' + m(c.monto) + '). Lo cobrado antes no se toca.')) return; x.desde = d; }
   if (accion === 'ESPERAR' && !confirm(pre + '¿Esperar ' + (n === 2 ? 'dos cuotas' : 'una cuota') + '? Si para entonces sigue atrasado, se vuelve a sugerir.')) return;
   if (accion === 'NO_APLICA') { var mo = prompt(pre + '¿Por qué no aplica? (por ejemplo: solo debe una integrante y ya avisó)'); if (!mo || mo.trim().length < 4) return; x.motivo = mo.trim(); }
+  abrirModal(cargando('Guardando… no cierres la app'));
+  escribir('appRecuperacion', [id, accion, x], function(r){ cerrarModal(); alert((r && r.texto) || 'Listo.');
+    if (desdePago && PG && PG.c && PG.c.id === id) {   // seguir en el pago: no se pierde lo capturado
+      c.recup = accion === 'ACTIVAR' ? { estado: 'ACTIVA', titulo: '♻️ En recuperación de capital desde ' + fIso(x.desde), texto: 'Recién activada: lo que pagó desde el ' + fIso(x.desde) + ' va a capital.' } : { estado: accion === 'ESPERAR' ? 'ESPERA' : 'NO_APLICA' };
+      PG.c.recup = c.recup; pagoPintar(); cargar(); }
+    else { cerrarPanel(); cargar(); } }, function(e){ cerrarModal(); alert(e.message || e); }); }
+// Línea compacta en Registrar pago: sugerido (solo admin, con "Decidir") o activa (todos: a dónde se va el pago)
+function rcLineaPago(c){ var r = c && c.recup; if (!r) return '';
+  if (r.estado === 'ACTIVA') return '<div class="aviso r" style="margin-top:10px;"><b>♻️ Este pago se va completo a capital</b><div style="margin-top:2px;">' + esc(r.texto || '') + '</div></div>';
+  if (r.estado === 'SUGERIDA' && adm()) return '<div class="aviso a" style="margin-top:10px;display:flex;align-items:center;gap:10px;"><div style="flex:1;"><b>' + esc(r.titulo || '') + '</b><div style="margin-top:2px;">' + esc(r.texto || '') + '</div></div>' +
+    '<button class="btn bs" style="width:auto;margin:0;padding:8px 14px;" onclick="rcHoja(\'' + c.id + '\',PG.fecha,1)">Decidir</button></div>';
+  return ''; }
+function rcAccionApp(id, accion, n){ var c = credDe(id); if (!c) return; var x = { n: n || 1 }, pre = c.id + ' · ' + corto(c.nombre) + '\n\n';
   if (accion === 'QUITAR' && !confirm(pre + (c.recup && (c.recup.estado === 'ACTIVA' || c.recup.estado === 'RECUPERADA') ? '¿Quitar la recuperación de capital?\n\nOjo: TODO lo cobrado desde la marca se vuelve a repartir como si nunca se hubiera marcado (parte del capital recuperado vuelve a contar como interés y cambian la caja y el interés de esos meses).\n\nSi ya recuperó el capital NO hace falta quitarla: lo que pague de aquí en adelante ya se va a interés solo. Quítala solo si se marcó por error.' : '¿Quitar la marca?'))) return;
   abrirModal(cargando('Guardando… no cierres la app'));
   escribir('appRecuperacion', [id, accion, x], function(r){ cerrarModal(); alert((r && r.texto) || 'Listo.'); cerrarPanel(); cargar(); }, function(e){ cerrarModal(); alert(e.message || e); }); }
@@ -502,7 +526,7 @@ function pagoCargarCuota(){ var p = PG; p.info = null; p.error = ''; pagoPintar(
       pagoPintar(); }, function(e){ if (PG !== p) return; p.error = e.message; pagoPintar(); }); }
 function pagoSuma(){ var s = 0; Object.keys(PG.ap).forEach(function(k){ var a = PG.ap[k]; if (a.si) s += Number(a.monto) || 0; }); return Math.round(s * 100) / 100; }
 function pagoPintar(){ var p = PG, c = p.c, i = p.info; if (p.tipo === 'cuota') moraPago(p);
-  var h = '<div class="w"><button class="back" onclick="history.back()">← Volver</button><div class="big">Registrar pago</div><div class="mini">' + esc(c.id) + ' · ' + esc(tit(c.nombre)) + ' · ' + (c.modalidad === 'GRUPAL' ? 'grupal' : 'individual') + '</div>';
+  var h = '<div class="w"><button class="back" onclick="history.back()">← Volver</button><div class="big">Registrar pago</div><div class="mini">' + esc(c.id) + ' · ' + esc(tit(c.nombre)) + ' · ' + (c.modalidad === 'GRUPAL' ? 'grupal' : 'individual') + '</div>' + rcLineaPago(c);   // 24/11/2026
   var ind = c.modalidad !== 'GRUPAL';   // 15/11/2026: igual que la computadora: solo cuota · cuota + capital · solo capital (individuales)
   if (ind) h += '<h2 class="sec">¿Qué es?</h2><div class="seg3">' + [['cuota','Solo cuota'],['capital','Cuota + capital'],['solo','Solo capital']].map(function(x){ return '<button class="' + (p.tipo === x[0] ? 'on' : '') + '" onclick="pagoTipo(\'' + x[0] + '\')">' + x[1] + '</button>'; }).join('') + '</div>';
   if (ind && p.tipo === 'solo') { var ven = p.cuotas.filter(function(q){ return q.vencida && q.falta > 2; });
