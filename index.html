@@ -225,7 +225,7 @@ function filaCred(c, modo, accion){
   var rojo = c.vencido > 0, base = modo !== 'venc' && !(modo === 'prox' && c.prox), mo = modo === 'venc' ? c.vencido : (modo === 'prox' && c.prox ? c.prox.falta : c.monto);   // 16/11/2026: en la lista va el monto original; lo que debe, abajo
   var det = c.id + ' · ' + (c.modalidad === 'GRUPAL' ? 'grupal' : (c.tipo || 'individual').toLowerCase()) +
     (modo === 'venc' ? ' · ' + c.cuotasVencidas + ' cuota' + (c.cuotasVencidas === 1 ? '' : 's') : (modo === 'prox' && c.prox ? ' · cuota ' + c.prox.num + ' · ' + c.prox.fecha.slice(0, 5) : (c.porDispersar ? ' · por dispersar' : '')));
-  return '<button class="f" onclick="' + (accion || 'ficha') + '(\'' + c.id + '\')"><div class="av' + (rojo ? ' r' : '') + '">' + esc(ini(c.nombre)) + '</div><div class="tx"><div class="nm">' + esc(corto(c.nombre)) + '</div><div class="dt">' + esc(det) + '</div></div>' +
+  return '<button class="f" onclick="' + (accion || 'ficha') + '(\'' + c.id + '\')"><div class="av' + (rojo ? ' r' : '') + '">' + esc(ini(c.nombre)) + '</div><div class="tx"><div class="nm">' + esc(corto(c.nombre)) + (c.recup && c.recup.estado === 'ACTIVA' ? ' <span class="chip r" style="margin:0;">♻️ rec. capital</span>' : '') + '</div><div class="dt">' + esc(det) + '</div></div>' +
     '<div class="mt">' + m(mo) + (modo === 'venc' ? '<small>' + c.diasAtraso + ' día' + (c.diasAtraso === 1 ? '' : 's') + '</small>' : (base && !c.porDispersar ? (rojo ? '<small style="color:var(--bad)">venc. ' + m(c.vencido) + ' · ' + c.diasAtraso + ' d</small>' : '<small style="color:var(--mu);font-weight:600">debe ' + m(c.debe) + '</small>') : '')) + '</div></button>';
 }
 function fechaT(s){ var p = String(s || '').split('/'); return p.length === 3 ? new Date(+p[2], +p[1] - 1, +p[0]).getTime() : 0; }
@@ -293,6 +293,10 @@ function vResumen(A, venc, prox, pr2, porD){
     h += '<div class="mini3">' + [['GRUPAL','Grupales'],['COMPUESTO','Ind. compuesto'],['SIMPLE','Ind. simple']].map(function(x){ var t = T[x[0]] || {}; return '<div>' + x[1] + '<b>' + mm(t.capital) + '</b>' + (t.n || 0) + ' · venc. ' + m(t.vencido) + '</div>'; }).join('') + '</div>'; }
   if (K) h += '<div class="mini3"><div>Por cobrar 7 días<b>' + m(K.prox7) + '</b>' + K.prox7n + ' cuotas</div><div>Cobrado en el mes<b>' + m(K.cobradoMes) + '</b>pagos recibidos</div><div>Detenido<b>' + m(K.detenido) + '</b>demanda / convenio</div></div>';
   h += '<button class="btn bs" onclick="ir(\'proy\')">📈 Proyectado vs cobrado</button>';
+  var rcL = A.filter(function(c){ return c.recup && (c.recup.estado === 'SUGERIDA' || c.recup.estado === 'ACTIVA' || c.recup.estado === 'RECUPERADA'); }).sort(function(a, b){ var o = { SUGERIDA: 0, ACTIVA: 1, RECUPERADA: 2 }; return o[a.recup.estado] - o[b.recup.estado] || b.diasAtraso - a.diasAtraso; });   // 24/11/2026
+  if (rcL.length) h += '<h2 class="sec">♻️ Recuperación de capital<span class="n' + (rcL.some(function(c){ return c.recup.estado === 'SUGERIDA'; }) ? ' r' : '') + '">' + rcL.length + '</span></h2>' + rcL.map(function(c){ var r = c.recup;
+      return '<button class="f" onclick="ficha(\'' + c.id + '\')"><div class="av' + (r.estado === 'SUGERIDA' ? ' r' : '') + '">' + esc(ini(c.nombre)) + '</div><div class="tx"><div class="nm">' + esc(c.id) + ' · ' + esc(corto(c.nombre)) + '</div><div class="dt">' + esc(r.estado === 'SUGERIDA' ? 'Sugerido · ' + r.texto : (r.estado === 'ACTIVA' ? 'Activa · ' + r.texto : r.titulo)) + '</div></div>' +
+        '<span class="chip ' + (r.estado === 'SUGERIDA' ? 'a' : (r.estado === 'ACTIVA' ? 'r' : '')) + '">' + (r.estado === 'SUGERIDA' ? 'Decidir' : (r.estado === 'ACTIVA' ? 'Activa' : 'Recuperado')) + '</span></button>'; }).join('');
   if (porD.length) h += '<h2 class="sec">Por dispersar<span class="n">' + porD.length + '</span></h2>' + porD.map(function(c){ return '<button class="f" onclick="dspAbrir(\'' + c.id + '\')"><div class="av">' + esc(ini(c.nombre)) + '</div><div class="tx"><div class="nm">' + esc(c.id) + ' · ' + esc(corto(c.nombre)) + '</div><div class="dt">' + (c.modalidad === 'GRUPAL' ? 'grupal' : 'individual') + ' ' + m(c.monto) + ' · firmó ' + esc(c.firma) + '</div></div><span class="chip">Dispersar</span></button>'; }).join('');
   h += '<h2 class="sec">Vencen esta semana<span class="n">' + pr2.length + '</span></h2>' + (pr2.length ? pr2.slice(0, 8).map(function(c){ return filaCred(c, 'prox'); }).join('') + (pr2.length > 8 ? '<button class="btn bs" onclick="ir(\'cobrar\')">Ver los ' + pr2.length + ' en Cobrar</button>' : '') : '<div class="vacio">Nada vence en los próximos 7 días.</div>');
   h += '<h2 class="sec">Vencidos<span class="n r">' + venc.length + '</span></h2>' + (venc.length ? venc.slice(0, 8).map(function(c){ return filaCred(c, 'venc'); }).join('') + (venc.length > 8 ? '<button class="btn bs" onclick="SEGC=\'venc\';ir(\'creditos\')">Ver los ' + venc.length + ' vencidos</button>' : '') : '<div class="vacio">Sin vencidos. 🎉</div>');
@@ -323,10 +327,31 @@ function listaC(){
   $('lc').innerHTML = L.length ? '<p class="mini">' + L.length + ' crédito(s) · prestado ' + m(L.reduce(function(s, c){ return s + (Number(c.monto) || 0); }, 0)) + ' · debe ' + m(L.reduce(function(s, c){ return s + c.debe; }, 0)) + '</p>' + L.map(function(c){ return filaCred(c, 'lista'); }).join('') : '<div class="vacio">No hay créditos con eso.</div>'; }
 
 // ---------- FICHA ----------
+// ---------- RECUPERACIÓN DE CAPITAL (24/11/2026) ----------
+// Marcado: leyenda para todos. Sugerido: David y Gio deciden (activar · esperar 1 o 2 cuotas · no aplica).
+function rcHtml(c){ var r = c && c.recup; if (!r || !r.estado) return '';
+  var cl = r.estado === 'ACTIVA' ? 'r' : (r.estado === 'SUGERIDA' ? 'a' : (r.estado === 'RECUPERADA' || r.estado === 'CAPITAL_YA' ? 'ok' : ''));
+  var h = '<div class="aviso ' + cl + '" style="margin-top:10px;' + (cl === 'ok' ? 'background:var(--acs);color:var(--ac2);' : (cl ? '' : 'background:var(--ln);color:var(--ink);')) + '"><b>' + esc(r.titulo || '') + '</b>' +
+    (r.leyenda ? '<div style="font-weight:700;margin-top:3px;">' + esc(r.leyenda) + '</div>' : '') + (r.texto ? '<div style="margin-top:3px;">' + esc(r.texto) + '</div>' : '');
+  if (adm()) {
+    if (r.estado === 'SUGERIDA') h += '<div class="acc" style="margin-top:8px;"><button onclick="rcAccionApp(\'' + c.id + '\',\'ACTIVAR\')"><b>♻️</b>Activar</button><button onclick="rcAccionApp(\'' + c.id + '\',\'ESPERAR\',1)"><b>⏳</b>Esperar 1 cuota</button>' +
+      '<button onclick="rcAccionApp(\'' + c.id + '\',\'ESPERAR\',2)"><b>⏳</b>Esperar 2 cuotas</button><button onclick="rcAccionApp(\'' + c.id + '\',\'NO_APLICA\')"><b>✖️</b>No aplica</button></div>';
+    else if (r.estado === 'ACTIVA' || r.estado === 'RECUPERADA') h += '<button class="btn bs" style="margin-top:8px;" onclick="rcAccionApp(\'' + c.id + '\',\'QUITAR\')">Quitar recuperación de capital</button>';
+    else if (r.estado === 'ESPERA' || r.estado === 'NO_APLICA') h += '<button class="btn bs" style="margin-top:8px;" onclick="rcAccionApp(\'' + c.id + '\',\'QUITAR\')">Quitar la marca</button>';
+  }
+  return h + '</div>'; }
+function rcAccionApp(id, accion, n){ var c = credDe(id); if (!c) return; var x = { n: n || 1 }, pre = c.id + ' · ' + corto(c.nombre) + '\n\n';
+  if (accion === 'ACTIVAR' && !confirm(pre + '¿Activar la recuperación de capital desde hoy?\n\nTodo lo que pague desde hoy se aplica a capital hasta recuperar lo prestado (' + m(c.monto) + '). Lo cobrado antes no se toca.')) return;
+  if (accion === 'ESPERAR' && !confirm(pre + '¿Esperar ' + (n === 2 ? 'dos cuotas' : 'una cuota') + '? Si para entonces sigue atrasado, se vuelve a sugerir.')) return;
+  if (accion === 'NO_APLICA') { var mo = prompt(pre + '¿Por qué no aplica? (por ejemplo: solo debe una integrante y ya avisó)'); if (!mo || mo.trim().length < 4) return; x.motivo = mo.trim(); }
+  if (accion === 'QUITAR' && !confirm(pre + (c.recup && (c.recup.estado === 'ACTIVA' || c.recup.estado === 'RECUPERADA') ? '¿Quitar la recuperación de capital? Los pagos vuelven a la regla normal (lo ya cobrado se vuelve a repartir).' : '¿Quitar la marca?'))) return;
+  abrirModal(cargando('Guardando… no cierres la app'));
+  escribir('appRecuperacion', [id, accion, x], function(r){ cerrarModal(); alert((r && r.texto) || 'Listo.'); cerrarPanel(); cargar(); }, function(e){ cerrarModal(); alert(e.message || e); }); }
 function ficha(id){ var c = credDe(id); if (!c) return;
   var h = '<div class="w"><button class="back" onclick="history.back()">← Volver</button><div class="big">' + esc(tit(c.nombre)) + '</div>' +
     '<div><span class="chip">' + esc(c.id) + '</span><span class="chip g">' + (c.modalidad === 'GRUPAL' ? 'Grupal' : esc(tit(c.tipo || 'individual'))) + '</span>' +
     (c.vencido > 0 ? '<span class="chip r">' + c.cuotasVencidas + ' vencida(s) · ' + c.diasAtraso + ' días</span>' : '<span class="chip">al corriente</span>') + (c.riesgo ? '<span class="chip a">Riesgo ' + esc(c.riesgo) + '</span>' : '') + (c.porDispersar ? '<span class="chip a">por dispersar</span>' : '') + '</div>' +
+    rcHtml(c) +   // 24/11/2026: recuperación de capital
     (c.tel ? '<a class="btn bw" target="_blank" href="' + wa(c.tel) + '">WhatsApp ' + esc(c.modalidad === 'GRUPAL' ? '(ancla) ' : '') + esc(c.tel.slice(0, 3) + ' ' + c.tel.slice(3, 6) + ' ' + c.tel.slice(6)) + '</a>' : '<div class="aviso a">Sin teléfono en su ficha.</div>') +
     '<div class="kpis" style="margin-top:12px;"><div class="k"><div class="t">Debe en total</div><div class="v">' + m(c.debe) + '</div><div class="s">de ' + m(c.monto) + ' prestado</div></div>' +
     '<div class="k' + (c.vencido > 0 ? ' r' : '') + '"><div class="t">Vencido</div><div class="v">' + m(c.vencido) + '</div><div class="s">' + (c.prox ? 'próx. ' + c.prox.fecha.slice(0, 5) + ' ' + m(c.prox.falta) : '') + '</div></div></div>';
@@ -1298,7 +1323,9 @@ function ecDatos(r, modo){
   var avance = r.aPagar > 0.5 ? Math.min(100, Math.round(r.cobrado / r.aPagar * 100)) : 0;
   var mora = r.mora && r.mora.monto > 0.5 ? r.mora.monto : 0;
   var notas = [];
+  if (r.recup && r.recup.activa) notas.push('♻️ ' + r.recup.leyenda + (r.recup.desde ? ' (desde ' + r.recup.desde + ')' : ''));
   if (modo === 'CAP') notas.push('Reparto: todo lo pagado va primero a capital (hasta ' + ecM(r.monto) + ') y lo demás a interés.');
+  else if (r.recup && r.recup.activa) notas.push('Reparto: hasta antes de la marca, cada cuota cubre primero su capital y luego su interés; desde la marca, todo a capital hasta completar lo prestado.');
   else notas.push('Reparto como el dashboard: lo pagado de cada cuota cubre primero su capital y luego su interés.');
   if (r.debeHoy > 0.5) notas.push('Vencido: ' + r.cuotas.filter(function(q){ return q.vencida && q.falta > 0.5; }).map(function(q){ return (r.cred.grupal ? '#' : 'pago ') + q.num + ' (' + q.fecha.slice(0, 5) + ')'; }).join(', ') + (mora ? '. Moratorio a hoy: ' + ecM(mora) + (r.mora.estimado ? ' (estimado)' : '') + '.' : '.'));
   if (r.mora && r.mora.error) notas.push('No se pudo calcular el moratorio: ' + r.mora.error);
