@@ -364,6 +364,7 @@ function rcDecidir(id, accion, n, desdePago){ var c = credDe(id); if (!c) return
 // Línea compacta en Registrar pago: sugerido (solo admin, con "Decidir") o activa (todos: a dónde se va el pago)
 function rcLineaPago(c){ var r = c && c.recup; if (!r) return '';
   if (r.estado === 'ACTIVA') return '<div class="aviso r" style="margin-top:10px;"><b>♻️ Este pago se va completo a capital</b><div style="margin-top:2px;">' + esc(r.texto || '') + '</div></div>';
+  if (r.estado === 'RECUPERADA') return '<div class="aviso" style="margin-top:10px;background:#e6f4ea;color:#1e6b3a;"><b>♻️ Capital ya recuperado</b><div style="margin-top:2px;">Este pago se aplica a interés.</div></div>';   // 25/11/2026
   if (r.estado === 'SUGERIDA' && adm()) return '<div class="aviso a" style="margin-top:10px;display:flex;align-items:center;gap:10px;"><div style="flex:1;"><b>' + esc(r.titulo || '') + '</b><div style="margin-top:2px;">' + esc(r.texto || '') + '</div></div>' +
     '<button class="btn bs" style="width:auto;margin:0;padding:8px 14px;" onclick="rcHoja(\'' + c.id + '\',PG.fecha,1)">Decidir</button></div>';
   return ''; }
@@ -1347,9 +1348,9 @@ function ecDatos(r, modo){
   var avance = r.aPagar > 0.5 ? Math.min(100, Math.round(r.cobrado / r.aPagar * 100)) : 0;
   var mora = r.mora && r.mora.monto > 0.5 ? r.mora.monto : 0;
   var notas = [];
-  if (r.recup && r.recup.activa) notas.push('♻️ ' + r.recup.leyenda + (r.recup.desde ? ' (desde ' + r.recup.desde + ')' : ''));
+  if (r.recup && (r.recup.activa || r.recup.recuperada)) notas.push('♻️ ' + r.recup.leyenda + (r.recup.activa && r.recup.desde ? ' (desde ' + r.recup.desde + ')' : ''));
   if (modo === 'CAP') notas.push('Reparto: todo lo pagado va primero a capital (hasta ' + ecM(r.monto) + ') y lo demás a interés.');
-  else if (r.recup && r.recup.activa) notas.push('Reparto: hasta antes de la marca, cada cuota cubre primero su capital y luego su interés; desde la marca, todo a capital hasta completar lo prestado.');
+  else if (r.recup && (r.recup.activa || r.recup.recuperada)) notas.push('Reparto: hasta antes de la marca, cada cuota cubre primero su capital y luego su interés; desde la marca, todo a capital hasta completar lo prestado.');
   else notas.push('Reparto como el dashboard: lo pagado de cada cuota cubre primero su capital y luego su interés.');
   if (r.debeHoy > 0.5) notas.push('Vencido: ' + r.cuotas.filter(function(q){ return q.vencida && q.falta > 0.5; }).map(function(q){ return (r.cred.grupal ? '#' : 'pago ') + q.num + ' (' + q.fecha.slice(0, 5) + ')'; }).join(', ') + (mora ? '. Moratorio a hoy: ' + ecM(mora) + (r.mora.estimado ? ' (estimado)' : '') + '.' : '.'));
   if (r.mora && r.mora.error) notas.push('No se pudo calcular el moratorio: ' + r.mora.error);
