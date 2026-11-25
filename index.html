@@ -336,7 +336,7 @@ function rcHtml(c){ var r = c && c.recup; if (!r || !r.estado) return '';
   if (adm()) {
     if (r.estado === 'SUGERIDA') h += '<div class="acc" style="margin-top:8px;"><button onclick="rcAccionApp(\'' + c.id + '\',\'ACTIVAR\')"><b>♻️</b>Activar</button><button onclick="rcAccionApp(\'' + c.id + '\',\'ESPERAR\',1)"><b>⏳</b>Esperar 1 cuota</button>' +
       '<button onclick="rcAccionApp(\'' + c.id + '\',\'ESPERAR\',2)"><b>⏳</b>Esperar 2 cuotas</button><button onclick="rcAccionApp(\'' + c.id + '\',\'NO_APLICA\')"><b>✖️</b>No aplica</button></div>';
-    else if (r.estado === 'ACTIVA' || r.estado === 'RECUPERADA') h += '<button class="btn bs" style="margin-top:8px;" onclick="rcAccionApp(\'' + c.id + '\',\'QUITAR\')">Quitar recuperación de capital</button>';
+    else if (r.estado === 'ACTIVA' || r.estado === 'RECUPERADA') h += '<button class="btn bs" style="margin-top:8px;" onclick="rcAccionApp(\'' + c.id + '\',\'QUITAR\')">Quitar (solo si se marcó por error)</button>';
     else if (r.estado === 'ESPERA' || r.estado === 'NO_APLICA') h += '<button class="btn bs" style="margin-top:8px;" onclick="rcAccionApp(\'' + c.id + '\',\'QUITAR\')">Quitar la marca</button>';
   }
   return h + '</div>'; }
@@ -344,7 +344,7 @@ function rcAccionApp(id, accion, n){ var c = credDe(id); if (!c) return; var x =
   if (accion === 'ACTIVAR' && !confirm(pre + '¿Activar la recuperación de capital desde hoy?\n\nTodo lo que pague desde hoy se aplica a capital hasta recuperar lo prestado (' + m(c.monto) + '). Lo cobrado antes no se toca.')) return;
   if (accion === 'ESPERAR' && !confirm(pre + '¿Esperar ' + (n === 2 ? 'dos cuotas' : 'una cuota') + '? Si para entonces sigue atrasado, se vuelve a sugerir.')) return;
   if (accion === 'NO_APLICA') { var mo = prompt(pre + '¿Por qué no aplica? (por ejemplo: solo debe una integrante y ya avisó)'); if (!mo || mo.trim().length < 4) return; x.motivo = mo.trim(); }
-  if (accion === 'QUITAR' && !confirm(pre + (c.recup && (c.recup.estado === 'ACTIVA' || c.recup.estado === 'RECUPERADA') ? '¿Quitar la recuperación de capital? Los pagos vuelven a la regla normal (lo ya cobrado se vuelve a repartir).' : '¿Quitar la marca?'))) return;
+  if (accion === 'QUITAR' && !confirm(pre + (c.recup && (c.recup.estado === 'ACTIVA' || c.recup.estado === 'RECUPERADA') ? '¿Quitar la recuperación de capital?\n\nOjo: TODO lo cobrado desde la marca se vuelve a repartir como si nunca se hubiera marcado (parte del capital recuperado vuelve a contar como interés y cambian la caja y el interés de esos meses).\n\nSi ya recuperó el capital NO hace falta quitarla: lo que pague de aquí en adelante ya se va a interés solo. Quítala solo si se marcó por error.' : '¿Quitar la marca?'))) return;
   abrirModal(cargando('Guardando… no cierres la app'));
   escribir('appRecuperacion', [id, accion, x], function(r){ cerrarModal(); alert((r && r.texto) || 'Listo.'); cerrarPanel(); cargar(); }, function(e){ cerrarModal(); alert(e.message || e); }); }
 function ficha(id){ var c = credDe(id); if (!c) return;
