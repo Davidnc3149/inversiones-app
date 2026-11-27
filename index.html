@@ -955,22 +955,35 @@ function abGuardar(){ var d = AB.data, mo = Math.round(num($('abm').value) * 100
 var NC = { texto: '', r: null, bonif: null, ficha: true, c0: null, tasa0: '' };
 // 21/11/2026: 🔎 Revisar personas (antes de un crédito nuevo)
 var RVA = { texto: '', r: null };
-/* === REVISAR PERSONAS (21/11/2026) === */
+/* === REVISAR PERSONAS (21/11/2026 · ficha clara 27/11/2026) === */
 // Vista y dos imágenes (A: Giovanni, completa · B: promotora, sin datos de créditos de otros clientes). Sin librerías.
 var RV_COL = { R: ['#d93025', '#fdecea', '#9b1c1c'], Y: ['#f0a500', '#fff4e0', '#8a5300'], G: ['#1e8e3e', '#e8f5ee', '#0f6e56'] };
 function rvE(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
 function rvM(n){ return '$' + Math.round(Number(n) || 0).toLocaleString('es-MX'); }
 function rvTitulo(r, ver){ var e = r.encabezado, tipo = e.modalidad === 'GRUPAL' ? 'Grupo nuevo' : (e.modalidad ? 'Crédito nuevo' : 'Revisión');
   return (ver === 'B' && e.modalidad === 'GRUPAL' ? 'Tu grupo nuevo' : tipo) + (ver !== 'B' && e.promNombre ? ' · ' + e.promNombre.split(' ').slice(0, 2).join(' ') : '') + (e.monto ? ' · ' + rvM(e.monto) : '') + ' · ' + e.n + ' persona' + (e.n === 1 ? '' : 's') + ' · ' + String(r.fecha).slice(0, 10); }
+// renglones de la ficha (los arma el servidor): res · sec · cr · det · his
+function rvLineas(p, ver){ return (p.ficha && p.ficha[ver === 'B' ? 'b' : 'a']) || []; }
+function rvMalo(t){ return /(^|· )(DEBE \$|SU GRUPO (DEBE|TIENE ATRASO)|CON PAGOS ATRASADOS)/.test(t); }
+function rvFichaHtml(p){
+  return rvLineas(p, 'A').map(function(l){ var t = rvE(l.t);
+    if (l.k === 'res') return '<div style="font-weight:600;margin-top:3px">' + t + '</div>';
+    if (l.k === 'sec') return '<div style="font-size:11px;font-weight:700;letter-spacing:.4px;color:#0f6e56;margin-top:7px">' + t + '</div>';
+    if (l.k === 'cr') return '<div style="font-weight:600;margin-top:3px' + (rvMalo(l.t) ? ';color:#c0392b' : '') + '">' + t + '</div>';
+    if (l.k === 'det') return '<div style="padding-left:16px;font-size:12.5px' + (rvMalo(l.t) ? ';color:#c0392b;font-weight:600' : '') + '">' + t + '</div>';
+    return '<div style="margin-top:7px;font-size:12px;opacity:.8">' + t + '</div>'; }).join('');
+}
+function rvPorque(p, ver){ var u = []; p.razones.forEach(function(z){ var t = ver === 'B' ? z.p : z.t; if (t && u.indexOf(t) < 0) u.push(t); }); return u; }
 function rvHtml(r){
   var c = r.conteo, h = '<div class="rv-k"><div style="background:' + RV_COL.R[1] + ';color:' + RV_COL.R[2] + '"><b>' + c.R + '</b>rojas</div><div style="background:' + RV_COL.Y[1] + ';color:' + RV_COL.Y[2] + '"><b>' + c.Y + '</b>revisar</div><div style="background:' + RV_COL.G[1] + ';color:' + RV_COL.G[2] + '"><b>' + c.G + '</b>sin problema</div></div>';
   if (r.anterior && r.anterior.length) h += '<div class="rv-nota">Grupo que se renueva: <b>' + r.anterior.map(rvE).join(', ') + '</b> (no cuenta como otro crédito; solo se marca a quien deba ahí).</div>';
   (r.avisos || []).forEach(function(a){ h += '<div class="rv-nota" style="color:#9b1c1c">' + rvE(a) + '</div>'; });
   h += '<div class="rv-l">' + r.personas.map(function(p){
+    var pq = p.nivel === 'G' ? [] : rvPorque(p, 'A');
     return '<div class="rv-p"><span class="rv-dot" style="background:' + RV_COL[p.nivel][0] + '"></span><div style="flex:1;min-width:0"><b>' + rvE(p.nombre) + '</b>' + (p.rol ? ' <span class="rv-rol">' + rvE(p.rol) + '</span>' : '') +
-      (p.curp ? ' <span class="rv-c">' + rvE(p.curp) + '</span>' : ' <span class="rv-c">sin CURP</span>') +
-      (p.razones.length ? p.razones.map(function(z){ return '<div class="rv-z" style="color:' + RV_COL[z.n][2] + '">' + rvE(z.t) + '</div>'; }).join('') : '<div class="rv-z" style="color:' + RV_COL.G[2] + '">' + rvE(p.verde) + '</div>') +
-      (p.creditos.length ? '<div class="rv-cr">' + p.creditos.map(function(q){ return '<span>' + rvE(q.cid) + ' · ' + rvE(q.rol) + ' · ' + rvE(String(q.estatus).toLowerCase()) + (q.vencido ? ' · <b style="color:#9b1c1c">venc. ' + rvM(q.vencido) + '</b>' : '') + (q.renueva ? ' · se renueva' : '') + '</span>'; }).join('') + '</div>' : '') +
+      (p.curp ? ' <span class="rv-c">' + rvE(p.curp) + '</span>' : ' <span class="rv-c">sin CURP</span>') + rvFichaHtml(p) +
+      (pq.length ? '<div class="rv-z" style="margin-top:7px;font-weight:700;color:' + RV_COL[p.nivel][2] + '">Por qué está en ' + (p.nivel === 'R' ? 'rojo' : 'amarillo') + ':</div>' +
+        pq.map(function(t){ return '<div class="rv-z" style="color:' + RV_COL[p.nivel][2] + '">• ' + rvE(t) + '</div>'; }).join('') : '') +
       '</div></div>'; }).join('') + '</div>';
   if (r.faltanCurp && r.faltanCurp.length) h += '<div class="rv-nota">En la base les falta la CURP a ' + r.faltanCurp.length + ' (se buscaron por nombre). Para completarlas en 🗂️ Completar datos de personas:<textarea class="rv-json" readonly onclick="this.select()">' + rvE(JSON.stringify(r.faltanCurp)) + '</textarea></div>';
   return h;
@@ -979,15 +992,17 @@ function rvHtml(r){
 function rvCanvas(r, ver){
   var W = 760, P = 24, S = 2, cv = document.createElement('canvas'), x = cv.getContext('2d');
   var envolver = function(t, ancho, font){ x.font = font; var w = String(t).split(' '), L = [], l = ''; w.forEach(function(q){ var q2 = l ? l + ' ' + q : q; if (x.measureText(q2).width > ancho && l) { L.push(l); l = q; } else l = q2; }); if (l) L.push(l); return L; };
-  var alertas = r.personas.filter(function(p){ return p.nivel !== 'G'; }), verdes = r.personas.filter(function(p){ return p.nivel === 'G'; });
-  var txtP = function(p){ var zs = p.razones.map(function(z){ return ver === 'B' ? z.p : z.t; }).filter(function(t){ return t; });
-    var u = []; zs.forEach(function(t){ if (u.indexOf(t) < 0) u.push(t); }); return u.length ? u : [ver === 'B' ? 'Lo revisa Giovanni' : ''] ; };
-  var nivelB = function(p){ if (ver !== 'B') return p.nivel; var zs = p.razones.filter(function(z){ return z.p; }); return !zs.length ? 'Y' : (zs.some(function(z){ return z.n === 'R'; }) ? 'R' : 'Y'); };
+  var nivelB = function(p){ if (ver !== 'B' || p.nivel === 'G') return p.nivel; var zs = p.razones.filter(function(z){ return z.p; }); return !zs.length ? 'Y' : (zs.some(function(z){ return z.n === 'R'; }) ? 'R' : 'Y'); };
   var ancho = W - 2 * P - 34;
-  var H = 76 + 70;
-  alertas.forEach(function(p){ H += 30 + txtP(p).reduce(function(a, t){ return a + envolver(t, ancho, '14px Arial').length * 19; }, 0) + 10; });
-  var vTxt = verdes.map(function(p){ return p.nombre + (p.rol === 'ancla' ? ' (ancla)' : ''); }).join(', ');
-  if (verdes.length) H += 30 + envolver(vTxt, ancho, 'bold 14px Arial').length * 19 + 22;
+  // estilo de cada renglón: [fuente, color, sangría, espacio antes]
+  var EST = { res: ['bold 14px Arial', '#1d2433', 0, 4], sec: ['bold 12px Arial', '#0f6e56', 0, 10], cr: ['bold 14px Arial', '#1d2433', 0, 5], det: ['14px Arial', '#3d4452', 16, 1], his: ['13px Arial', '#6b7280', 0, 9], pq: ['bold 13px Arial', '#1d2433', 0, 9], pqi: ['13px Arial', '#1d2433', 8, 1] };
+  var renglones = function(p){ var n = nivelB(p), L = rvLineas(p, ver).map(function(l){ return { k: l.k, t: l.t, malo: (l.k === 'det' || l.k === 'cr') && rvMalo(l.t) }; });
+    var pq = p.nivel === 'G' ? [] : rvPorque(p, ver);
+    if (ver === 'B' && p.nivel !== 'G' && !pq.length) pq = ['Lo revisa Giovanni'];
+    if (pq.length) { L.push({ k: 'pq', t: 'Por qué está en ' + (n === 'R' ? 'rojo' : 'amarillo') + ':', col: RV_COL[n][2] }); pq.forEach(function(t){ L.push({ k: 'pqi', t: '• ' + t, col: RV_COL[n][2] }); }); }
+    return L; };
+  var altoP = function(p){ return 30 + renglones(p).reduce(function(a, l){ var e = EST[l.k]; return a + e[3] + envolver(l.t, ancho - e[2], e[0]).length * 19; }, 0) + 14; };
+  var H = 76 + 70; r.personas.forEach(function(p){ H += altoP(p); });
   if (ver !== 'B') H += 44;
   H += 40;
   cv.width = W * S; cv.height = H * S; x.scale(S, S);
@@ -997,22 +1012,19 @@ function rvCanvas(r, ver){
   x.fillStyle = '#0f6e56'; x.fillRect(0, 0, W, 76);
   tx('🔎 Revisión de personas', P, 34, 'bold 23px Georgia', '#fff');
   tx(rvTitulo(r, ver), P, 60, '14px Arial', '#d7efe6');
-  var c = { R: 0, Y: 0, G: verdes.length }; alertas.forEach(function(p){ c[nivelB(p)]++; });
+  var c = { R: 0, Y: 0, G: 0 }; r.personas.forEach(function(p){ c[nivelB(p)]++; });
   var cw = (W - 2 * P - 16) / 3, y = 88;
   [['R', ver === 'B' ? 'con pendiente' : 'rojas'], ['Y', 'revisar'], ['G', 'sin problema']].forEach(function(q, j){ var X = P + j * (cw + 8); rr(X, y, cw, 50, 8, RV_COL[q[0]][1]); tx(String(c[q[0]]), X + cw / 2, y + 26, 'bold 20px Arial', RV_COL[q[0]][2], 'center'); tx(q[1], X + cw / 2, y + 43, '12px Arial', RV_COL[q[0]][2], 'center'); });
   y = 146;
-  var linea = function(){ x.fillStyle = '#eeeeee'; x.fillRect(0, y, W, 1); };
-  alertas.forEach(function(p){
-    var n = nivelB(p); linea(); y += 22;
+  r.personas.forEach(function(p){
+    var n = nivelB(p); x.fillStyle = '#eeeeee'; x.fillRect(0, y, W, 1); y += 22;
     x.beginPath(); x.arc(P + 6, y - 5, 6, 0, 7); x.fillStyle = RV_COL[n][0]; x.fill();
     tx(p.nombre, P + 20, y, 'bold 15px Arial', '#1d2433');
     if (p.rol) { x.font = 'bold 15px Arial'; var wn = x.measureText(p.nombre).width; tx('· ' + p.rol, P + 26 + wn, y, '14px Arial', '#6b7280'); }
-    txtP(p).forEach(function(t){ envolver(t, ancho, '14px Arial').forEach(function(l){ y += 19; tx(l, P + 20, y, '14px Arial', '#3d4452'); }); });
-    y += 18;
+    renglones(p).forEach(function(l){ var e = EST[l.k]; y += e[3];
+      envolver(l.t, ancho - e[2], e[0]).forEach(function(s){ y += 19; tx(s, P + 20 + e[2], y, l.malo ? 'bold 14px Arial' : e[0], l.malo ? '#c0392b' : (l.col || e[1])); }); });
+    y += 14;
   });
-  if (verdes.length) { linea(); y += 22; x.beginPath(); x.arc(P + 6, y - 5, 6, 0, 7); x.fillStyle = RV_COL.G[0]; x.fill();
-    envolver(vTxt, ancho, 'bold 14px Arial').forEach(function(l, i){ if (i) y += 19; tx(l, P + 20, y, 'bold 14px Arial', '#1d2433'); });
-    y += 19; tx('Sin problema', P + 20, y, '14px Arial', '#3d4452'); y += 18; }
   if (ver !== 'B') { x.fillStyle = '#fff8e6'; x.fillRect(0, y, W, 44); x.fillStyle = '#f0e0b0'; x.fillRect(0, y, W, 1); tx('¿Autorizas? ✅ / ❌', P, y + 28, 'bold 15px Arial', '#1d2433'); y += 44; }
   x.fillStyle = '#faf9f5'; x.fillRect(0, y, W, H - y); x.fillStyle = '#eeeeee'; x.fillRect(0, y, W, 1);
   tx(ver === 'B' ? 'Inversiones Conscientes · la decisión final es de Giovanni' : 'Inversiones Conscientes · datos del sistema al ' + r.fecha, P, y + 25, '12px Arial', '#777');
